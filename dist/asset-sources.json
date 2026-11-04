@@ -1,0 +1,37 @@
+{
+  "logo": {
+    "local": "pfizer.svg",
+    "url": "https://www.pfizer.com.ph/images/9b08862f235a19554d3ac1adba05f4e7.svg",
+    "context": "Official Pfizer Philippines Our Identity page header/footer",
+    "page": "https://www.pfizer.com.ph/our-identity"
+  },
+  "logoPng": {
+    "local": "pfizer.png",
+    "url": "https://cdn.pfizer.com/pfizercom/2022-10/Pfizer_Logo_Color_CMYK.png",
+    "page": "https://www.pfizer.com/newsroom/media-assets?field_media_asset_type_target_id%5B22802%5D=22802"
+  },
+  "portraits": {
+    "provider": "Random User Generator",
+    "purpose": "Illustrative profile photos paired with fictional demonstration names. These do not represent Pfizer personnel.",
+    "localPattern": "avatars/1.jpg through avatars/16.jpg",
+    "sourcePattern": "https://randomuser.me/api/portraits/{men|women}/{id}.jpg",
+    "mapping": [
+      "women/44",
+      "men/32",
+      "women/68",
+      "men/46",
+      "women/47",
+      "men/11",
+      "women/49",
+      "men/12",
+      "women/26",
+      "men/22",
+      "women/65",
+      "men/75",
+      "women/79",
+      "men/83",
+      "women/82",
+      "men/34"
+    ]
+  }
+}
