@@ -10,3 +10,229 @@
 @media(max-width:800px){.ws-page-header{align-items:flex-start}.ws-page-header h1{font-size:24px}.ws-page-header p{font-size:11px}.ws-header-actions .btn{padding:8px 11px;white-space:nowrap}.ws-stats-grid{gap:9px;margin-bottom:23px}.ws-stat{padding:15px 13px!important;min-height:117px}.ws-stat-label{font-size:10px;gap:8px}.ws-stat-icon{width:27px;height:27px;border-radius:8px}.ws-stat-value{font-size:27px;margin:5px 0 10px}.ws-stat-foot{font-size:8px;line-height:1.7}.ws-toolbar{flex-wrap:wrap}.ws-filter-tabs{flex-wrap:wrap;gap:2px}.ws-filter-tabs button{font-size:9px;padding:8px 9px}.ws-search-small{margin-left:auto}.ws-feedback-grid,.ws-feedback-preview-grid{grid-template-columns:1fr}.ws-reports-grid{grid-template-columns:1fr}.ws-report-summary{display:none}.ws-assignment-banner{padding:18px;gap:13px}.ws-assignment-icon{width:39px;height:39px;border-radius:10px}.ws-assignment-actions{margin-left:52px}.ws-assignment-copy h3{font-size:13px}.ws-assignment-copy p{font-size:9px}.ws-project-grid-three{grid-template-columns:repeat(2,minmax(0,1fr))}.ws-issue-detail-layout{grid-template-columns:1fr}.ws-issue-aside{border-left:0;border-top:1px solid var(--line);padding:20px 0 0;display:grid;grid-template-columns:1fr 1fr;gap:12px 18px}.ws-issue-aside>label{margin-bottom:0}.ws-issue-aside>strong,.ws-issue-aside>.ws-person-inline{margin:0}.ws-issue-aside>p{grid-column:1/-1}.ws-issue-aside>.ws-urgency-big{font-size:24px}.ws-capacity-load{width:80px;margin-right:0}.ws-project-detail-stats{gap:12px;padding:16px}.ws-project-detail-stats>div:not(:first-child){padding-left:14px}.ws-project-detail-stats strong{font-size:20px}.ws-manager-brief{display:block}.ws-manager-brief .ws-ai-callout{margin:20px 0}.ws-manager-brief h3 br{display:none}}
 @media(max-width:600px){.ws-page-header{display:block}.ws-header-actions{margin-top:15px}.ws-stats-grid{grid-template-columns:1fr 1fr}.ws-stat:last-child{grid-column:1/-1;display:grid;grid-template-columns:1fr auto;gap:0 20px;min-height:82px}.ws-stat:last-child .ws-stat-label{grid-column:1;align-self:start}.ws-stat:last-child .ws-stat-icon{display:none}.ws-stat:last-child .ws-stat-value{grid-column:2;grid-row:1/3;align-self:center;margin:0}.ws-stat:last-child .ws-stat-foot{grid-column:1;align-self:end}.ws-project-grid,.ws-project-grid-three,.ws-team-grid,.ws-test-actions{grid-template-columns:1fr}.ws-project-description{height:auto;min-height:20px}.ws-assignment-icon{display:none}.ws-assignment-actions{margin-left:0;width:100%}.ws-assignment-actions>.btn{flex:1;justify-content:center;padding:9px;font-size:9px}.ws-assignment-banner{padding:17px}.ws-assignment-copy p{font-size:10px}.ws-section-heading h2{font-size:14px}.ws-section-heading p{font-size:9px}.ws-info-banner>.ws-badge{display:none}.ws-risk-panel{padding:0 14px!important}.ws-risk-row{flex-wrap:wrap;padding:18px 0}.ws-risk-project{flex:1;min-width:160px}.ws-risk-progress{display:none}.ws-risk-score{min-width:63px}.ws-risk-row>.ws-icon-button{display:none}.ws-toolbar>.ws-sorted-by{display:none}.ws-project-meta{font-size:10px}.ws-project-bottom>span{font-size:9px}.ws-test-actions{gap:12px}.ws-test-action{display:grid;grid-template-columns:42px 1fr;gap:0 14px;padding:17px!important}.ws-test-action>.ws-test-action-icon{grid-row:1/4}.ws-test-action h3{margin-top:2px;margin-bottom:5px}.ws-test-action p{font-size:10px;margin-bottom:10px}.ws-test-action>span:last-child{grid-column:2}.ws-credential-grid{grid-template-columns:1fr}.ws-key-block{padding:14px}.ws-key-block strong{font-size:16px;letter-spacing:1px}.ws-key-block>.btn{padding:7px 9px}.ws-accept-project{flex-wrap:wrap;padding:13px}.ws-accept-project>.ws-badge{margin-left:48px}.ws-project-detail-stats{grid-template-columns:1fr 1fr}.ws-project-detail-stats>div:first-child{grid-column:1/-1;padding-bottom:15px;border-bottom:1px solid var(--line)}.ws-project-detail-stats>div:nth-child(2){border:0;padding:0}.ws-project-detail-stats>div:nth-child(3){padding-left:15px}.ws-project-detail-stats .ws-progress{max-width:none}.ws-ai-strip>.ws-badge{display:none}.ws-project-team-person>small{display:none}.ws-resilience-result{gap:18px}.ws-score-ring{width:100px;height:100px}.ws-score-ring:before{inset:7px}.ws-score-ring strong{font-size:30px}.ws-score-ring small{font-size:15px}.ws-score-ring span{font-size:6px;letter-spacing:.5px}.ws-resilience-result h3{font-size:16px}.ws-resilience-result p{font-size:10px}.ws-fix-checks{gap:7px}.ws-fix-checks>div{padding:13px 7px}.ws-fix-checks strong{font-size:14px}.ws-fix-checks span{font-size:8px;text-align:center;line-height:1.5}.ws-form-grid{grid-template-columns:1fr}.ws-span-2{grid-column:auto}.ws-feedback-context{grid-template-columns:1fr 1fr}.ws-review-score{flex-wrap:wrap;gap:12px}.ws-review-score>.ws-positive-label{flex:1;min-width:170px}.ws-review-score>span:last-child{display:none}.ws-analysis-loading{padding:45px 24px!important}.ws-analysis-loading h2{font-size:20px}.ws-expected-grid{grid-template-columns:1fr}.ws-capacity-load{display:none}.ws-capacity-person{gap:9px;padding:13px 11px}.ws-capacity-person>.ws-badge{min-width:0;font-size:8px}.ws-capacity-name strong{font-size:10px}.ws-capacity-name>span{font-size:8px}.ws-run-summary>.ws-badge{display:none}.ws-run-summary p{font-size:9px}.ws-customer-preview>div{flex-wrap:wrap}.ws-brief-list>div{gap:10px;padding:14px 12px}.ws-brief-list strong{font-size:10px}.ws-brief-list>div>.ws-badge{font-size:8px}.ws-selection-count{font-size:9px}.ws-result-count{font-size:9px}.ws-risk-project .ws-table-title{font-size:11px}.ws-feedback-card-top .ws-person-inline>div>span{font-size:8px}}
 @media(prefers-reduced-motion:reduce){.ws-root,.ws-chart-bar,.ws-loading-orbit:after,.ws-small-spinner{animation:none!important}.ws-project-card,.ws-test-action,.ws-progress-fill{transition:none!important}}
+
+.ws-beta-inbox {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 30px;
+}
+.ws-beta-session summary {
+  padding: 16px 18px;
+  cursor: pointer;
+}
+.ws-beta-session-summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: calc(100% - 1rem);
+  vertical-align: middle;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.ws-beta-session-summary small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+}
+.ws-beta-session-summary .ws-badge { flex-shrink: 0; }
+.ws-beta-session ol {
+  margin: 0 18px;
+  padding: 0 0 0 23px;
+}
+.ws-beta-session li {
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.ws-beta-session li > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.ws-beta-session li p {
+  margin: 8px 0 0;
+  line-height: 1.6;
+  color: var(--muted);
+  white-space: pre-wrap;
+}
+
+.ws-finding-project {
+  display: block;
+  margin: 0 0 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-family: Manrope, 'DM Sans', sans-serif;
+  font-size: 17px;
+  font-weight: 750;
+  line-height: 1.35;
+  cursor: pointer;
+}
+.ws-finding-project:hover {
+  color: var(--blue);
+}
+.ws-table-title {
+  font-size: 12px;
+}
+.ws-table-sub {
+  font-size: 9px;
+}
+.ws-issue-project-name {
+  margin-bottom: 7px;
+  color: var(--blue);
+  font-family: Manrope, 'DM Sans', sans-serif;
+  font-size: 25px;
+  font-weight: 750;
+}
+.ws-project-modal-title h2 {
+  font-size: 30px;
+}
+.ws-project-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  min-height: 0;
+  max-height: 68vh;
+  overflow: hidden;
+}
+.ws-project-main {
+  min-width: 0;
+  overflow: auto;
+}
+.ws-project-roster {
+  min-width: 0;
+  padding: 20px 16px;
+  border-inline-start: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text);
+  overflow: auto;
+}
+.ws-project-roster .eyebrow {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 8px;
+  letter-spacing: 1.4px;
+}
+.ws-project-roster h3 {
+  margin: 0;
+  font-size: 18px;
+}
+.ws-project-roster header p {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+.ws-project-roster ul {
+  display: grid;
+  gap: 7px;
+  margin: 17px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.ws-project-roster li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 9px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+}
+.ws-project-roster li[data-role="manager"] {
+  border-inline-start: 3px solid var(--blue);
+}
+.ws-project-roster li > div {
+  flex: 1;
+  min-width: 0;
+}
+.ws-project-roster li strong {
+  display: block;
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.ws-project-roster li strong small {
+  display: inline-block;
+  margin-inline-start: 5px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--blue-soft);
+  color: var(--blue);
+  font-size: 8px;
+  font-weight: 600;
+}
+.ws-project-roster li div > span {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 9px;
+}
+.ws-roster-presence {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--green);
+}
+.ws-roster-presence.is-away {
+  background: var(--amber);
+}
+.ws-project-roster footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 9px;
+}
+.ws-roster-actions {
+  display: grid;
+  gap: 5px;
+  margin-top: 14px;
+}
+.ws-roster-actions .btn {
+  justify-content: center;
+  width: 100%;
+  padding-inline: 8px;
+  font-size: 10px;
+}
+.ws-project-main .ws-table th:nth-child(4),
+.ws-project-main .ws-table td:nth-child(4) {
+  display: none;
+}
+.ws-project-main .ws-table td,
+.ws-project-main .ws-table th {
+  padding-inline: 11px;
+}
+.ws-project-main .ws-table td:first-child {
+  min-width: 220px;
+}
+@media (max-width: 720px) {
+  .ws-project-workspace {
+    grid-template-columns: minmax(0, 1fr);
+    overflow: auto;
+  }
+  .ws-project-roster {
+    border-inline-start: 0;
+    border-block-start: 1px solid var(--line);
+    overflow: visible;
+  }
+  .ws-project-roster ul {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .ws-project-main {
+    overflow: visible;
+  }
+  .ws-project-modal-title h2 {
+    font-size: 25px;
+  }
+}
+@media (max-width: 420px) {
+  .ws-project-roster ul {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

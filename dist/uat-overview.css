@@ -1,0 +1,400 @@
+.app-layout {
+  color: var(--text);
+}
+
+.app-layout > .sidebar {
+  overflow: auto;
+}
+
+[data-theme="dark"] .app-layout .nav-count,
+[data-theme="dark"] .app-layout .count-bubble,
+[data-theme="dark"] .app-layout .workspace-selector .ws-box {
+  background: var(--blue-soft);
+  color: #b6ccff;
+}
+
+.uat-workspace-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(218px, 21vw, 286px);
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.uat-workspace-layout > .main-content {
+  container: uat-main / inline-size;
+  min-width: 0;
+}
+
+.uat-right-rail {
+  min-height: 0;
+  padding: 20px 16px;
+  overflow: auto;
+  border-inline-start: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.uat-digest,
+.uat-metrics {
+  display: grid;
+  gap: 10px;
+}
+
+.uat-digest {
+  padding: 14px;
+}
+
+.uat-digest-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.uat-digest h2,
+.uat-metrics h2,
+.uat-project-section h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.uat-digest-summary,
+.uat-digest > small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.uat-digest-summary p + p {
+  margin-top: 7px;
+}
+
+.uat-digest-summary strong {
+  color: var(--text);
+}
+
+.uat-digest > small {
+  font-size: 9px;
+}
+
+.uat-digest .btn:disabled {
+  cursor: wait;
+  opacity: .6;
+}
+
+.uat-metrics {
+  margin-top: 20px;
+}
+
+.uat-metric {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto;
+  align-items: center;
+  column-gap: 6px;
+  row-gap: 2px;
+  padding: 11px 12px;
+  text-align: start;
+  color: var(--text);
+}
+
+.uat-metric:hover {
+  border-color: var(--blue);
+}
+
+.uat-metric-label,
+.uat-metric small {
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.uat-metric-label {
+  font-size: 11px;
+}
+
+.uat-metric-icon,
+.uat-assignment-icon,
+.uat-project-mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+}
+
+.uat-metric-icon {
+  background: color-mix(in srgb, var(--metric-color) 15%, var(--surface));
+  color: var(--metric-color);
+}
+
+.uat-metric-blue { --metric-color: var(--blue); }
+.uat-metric-amber { --metric-color: var(--amber); }
+.uat-metric-purple { --metric-color: var(--purple); }
+
+.uat-metric > strong {
+  font-family: Manrope, 'DM Sans', sans-serif;
+  font-size: 26px;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.uat-metric > small {
+  grid-column: 1 / -1;
+  font-size: 10px;
+}
+
+.uat-overview {
+  max-width: 1000px;
+  margin-inline: auto;
+}
+
+.uat-overview-header,
+.uat-overview-actions,
+.uat-assignment-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.uat-overview-header {
+  justify-content: space-between;
+  column-gap: 18px;
+  row-gap: 13px;
+  margin-bottom: 20px;
+}
+
+.uat-overview-header h1 {
+  margin: 0;
+  font-size: clamp(24px, 3vw, 32px);
+  line-height: 1.15;
+}
+
+.uat-overview-header p,
+.uat-assignment p {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.uat-assignment {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding: 10px 12px;
+  font-size: 11px;
+}
+
+.uat-assignment-icon {
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
+.uat-assignment p {
+  margin-top: 2px;
+}
+
+.uat-assignment-actions {
+  margin-inline-start: auto;
+}
+
+.uat-project-section + .uat-project-section {
+  margin-top: 24px;
+}
+
+.uat-project-section h2 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 10px;
+}
+
+.uat-project-stack {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.uat-project-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 16px;
+  border-inline-start: 4px solid var(--project-accent, var(--line));
+  text-align: start;
+  color: var(--text);
+}
+
+.uat-project-row:hover {
+  background: color-mix(in srgb, var(--project-accent, var(--blue)) 6%, var(--surface));
+}
+
+.uat-project-mark {
+  width: 44px;
+  height: 44px;
+  color: var(--project-ink, var(--text));
+  background: var(--project-tint, var(--surface-2));
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.uat-project-info {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.uat-project-info > strong {
+  font-size: 19px;
+  overflow-wrap: anywhere;
+}
+
+.uat-project-description,
+.uat-project-meta,
+.uat-project-status small,
+.uat-project-open {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.uat-project-description {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.uat-project-description:empty {
+  display: none;
+}
+
+.uat-project-meta,
+.uat-project-meta > span,
+.uat-project-progress {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.uat-project-meta {
+  flex-wrap: wrap;
+  column-gap: 10px;
+  font-size: 9px;
+}
+
+.uat-project-status {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  min-width: 85px;
+}
+
+.uat-project-progress {
+  width: 88px;
+  justify-content: space-between;
+  font-size: 9px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.uat-project-meter {
+  flex: 1;
+  height: 4px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--line);
+}
+
+.uat-project-meter > span {
+  display: block;
+  height: 100%;
+  background: var(--project-accent, var(--blue));
+}
+
+.uat-empty {
+  padding: 14px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+@container uat-main (max-width: 730px) {
+  .ws-reports-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ws-team-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container uat-main (max-width: 420px) {
+  .ws-feedback-grid,
+  .ws-team-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .uat-project-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 8px;
+    padding-inline: 8px;
+  }
+
+  .uat-project-mark {
+    width: 28px;
+    height: 28px;
+    font-size: 9px;
+  }
+
+  .uat-project-status {
+    min-width: 0;
+  }
+
+  .uat-project-open {
+    display: none;
+  }
+
+  .uat-project-progress {
+    width: 68px;
+  }
+
+  .uat-assignment-actions {
+    margin-inline-start: 0;
+  }
+}
+
+@media (max-width: 870px) {
+  .uat-workspace-layout {
+    display: block;
+    overflow: auto;
+  }
+
+  .uat-workspace-layout > .main-content,
+  .uat-right-rail {
+    overflow: visible;
+  }
+
+  .uat-right-rail {
+    border-inline-start: 0;
+    border-block-start: 1px solid var(--line);
+  }
+}
+
+@media (min-width: 580px) and (max-width: 870px) {
+  .uat-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .uat-metrics > h2 {
+    grid-column: 1 / -1;
+  }
+}

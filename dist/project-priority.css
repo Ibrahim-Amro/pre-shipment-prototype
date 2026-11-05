@@ -1,0 +1,91 @@
+[data-project-priority="urgent"] {
+  --project-accent: #f02643;
+  --project-tint: #ffedf0;
+  --project-ink: #b91a33;
+}
+
+[data-project-priority="high"] {
+  --project-accent: #dd7609;
+  --project-tint: #fff1e0;
+  --project-ink: #914800;
+}
+
+[data-project-priority="normal"] {
+  --project-accent: #c49b19;
+  --project-tint: #fff7db;
+  --project-ink: #775a00;
+}
+
+[data-project-priority="low"] {
+  --project-accent: #16899a;
+  --project-tint: #e5f6f8;
+  --project-ink: #086775;
+}
+
+[data-project-priority="completed"] {
+  --project-accent: #8290a3;
+  --project-tint: #edf1f6;
+  --project-ink: #526277;
+}
+
+[data-theme="dark"] [data-project-priority="urgent"] {
+  --project-accent: #ff435e;
+  --project-tint: #442737;
+  --project-ink: #ff9dac;
+}
+
+[data-theme="dark"] [data-project-priority="high"] {
+  --project-accent: #f0933d;
+  --project-tint: #403123;
+  --project-ink: #f8ba7f;
+}
+
+[data-theme="dark"] [data-project-priority="normal"] {
+  --project-accent: #dfb843;
+  --project-tint: #39341f;
+  --project-ink: #efcf76;
+}
+
+[data-theme="dark"] [data-project-priority="low"] {
+  --project-accent: #55b9c5;
+  --project-tint: #203d47;
+  --project-ink: #85d2da;
+}
+
+[data-theme="dark"] [data-project-priority="completed"] {
+  --project-accent: #8a99ae;
+  --project-tint: #293646;
+  --project-ink: #bdc9d9;
+}
+
+.project-priority-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--project-tint);
+  color: var(--project-ink);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.project-priority-badge::before {
+  width: 5px;
+  height: 5px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--project-accent);
+  content: "";
+}
+
+.project-priority-card {
+  border-inline-start: 3px solid var(--project-accent);
+}
+
+.project-priority-mark {
+  color: var(--project-ink);
+  background: var(--project-tint);
+}

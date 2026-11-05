@@ -1,0 +1,422 @@
+:root {
+  --person-photo-size: 64px;
+  --person-name-size: 20px;
+  --person-role-size: 16px;
+}
+
+.person-identity {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  color: var(--text);
+}
+
+.person-copy {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+body .person-name {
+  display: block;
+  margin: 0;
+  color: var(--text);
+  font-size: var(--person-name-size);
+  font-weight: 750;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+body .person-role {
+  display: block;
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--person-role-size);
+  font-weight: 500;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.person-identity .avatar {
+  width: var(--person-photo-size);
+  height: var(--person-photo-size);
+  flex: none;
+}
+
+body .person-meta {
+  margin: 9px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.person-edit-header,
+.person-request-author {
+  margin-block: 16px 24px;
+}
+
+#profile-menu {
+  width: min(360px, calc(100vw - 24px));
+  max-height: calc(100dvh - 160px);
+  overflow: auto;
+}
+
+select[name^="assignee-"],
+#ws-assign-developer,
+#ws-finding-dev,
+#ws-report-dev {
+  min-height: 52px;
+  font-size: 18px;
+}
+
+.topbar {
+  height: auto;
+  min-height: 96px;
+  gap: 14px;
+  padding-block: 12px;
+}
+
+.profile-trigger {
+  gap: 14px;
+  margin-inline-start: auto;
+  flex-shrink: 0;
+}
+
+.profile-trigger .profile-text {
+  display: block;
+  max-width: 215px;
+  min-width: 0;
+}
+
+.profile-trigger strong {
+  font-size: var(--person-name-size);
+  font-weight: 750;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.profile-trigger small {
+  margin-top: 5px;
+  font-size: var(--person-role-size);
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.topbar .global-search {
+  flex-shrink: 1;
+  min-width: 100px;
+}
+
+.topbar .breadcrumb {
+  min-width: 0;
+}
+
+.ws-project-workspace {
+  grid-template-columns: minmax(0, 1fr) 340px;
+}
+
+.uat-tester-body {
+  grid-template-columns: minmax(0, 1fr) 340px;
+}
+
+.uat-manager-review-grid {
+  grid-template-columns: minmax(0, 1fr) 340px;
+}
+
+.ws-project-roster {
+  padding: 22px 16px;
+}
+
+.ws-project-roster li {
+  min-height: 104px;
+  padding: 16px 12px;
+  gap: 13px;
+  align-items: center;
+}
+
+.ws-project-roster li strong {
+  font-size: var(--person-name-size);
+  line-height: 1.3;
+}
+
+.ws-project-roster li div > span {
+  margin-top: 6px;
+  font-size: var(--person-role-size);
+  line-height: 1.4;
+}
+
+.ws-project-roster li strong small {
+  margin-inline-start: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  vertical-align: middle;
+}
+
+.ws-roster-presence {
+  width: 8px;
+  height: 8px;
+}
+
+.uat-project-team-disclosure > summary {
+  min-height: 70px;
+}
+
+.uat-project-team-disclosure > summary strong {
+  font-size: 19px;
+}
+
+.uat-project-team-disclosure > summary small {
+  font-size: 14px;
+}
+
+.uat-project-team-disclosure[open] .uat-team-avatars {
+  display: none;
+}
+
+.uat-project-team-disclosure .ws-project-roster {
+  max-height: 350px;
+  overflow: auto;
+}
+
+.uat-team-avatars {
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 0;
+}
+
+.uat-team-avatars img {
+  margin: 0;
+}
+
+.uat-team-choice {
+  min-height: 96px;
+  gap: 13px;
+  padding: 12px 3px;
+}
+
+.uat-team-choice strong,
+.ws-capacity-name strong,
+.ws-teammate h3,
+body .of-person-info > strong,
+body .of-recipients strong {
+  font-size: var(--person-name-size);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.uat-team-choice small,
+.ws-capacity-name > span,
+.ws-teammate > p,
+body .of-person-info > span:not(.of-skill-tags),
+body .of-recipients small {
+  margin-top: 5px;
+  font-size: var(--person-role-size);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.ws-capacity-person {
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.ws-capacity-name {
+  flex: 1;
+  min-width: 150px;
+}
+
+.ws-table .person-identity {
+  min-width: 225px;
+}
+
+.ws-issue-aside > .person-identity {
+  flex-direction: column;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.ws-review-author,
+.ws-message-recipient,
+.ws-feedback-card-top {
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.ws-message-recipient > .person-identity {
+  flex-direction: row;
+  gap: 14px;
+}
+
+.ws-feedback-person {
+  flex: 1;
+  min-width: 200px;
+}
+
+.ws-review-verification {
+  padding: 18px;
+  margin-bottom: 22px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.ws-feedback-card .person-name,
+.ws-feedback-card .person-role {
+  text-transform: none;
+}
+
+.person-request-row {
+  flex-wrap: wrap;
+}
+
+.person-request-team {
+  display: grid;
+  gap: 16px;
+  flex: 1;
+}
+
+.ws-email-meta {
+  grid-template-columns: 60px minmax(0, 1fr);
+}
+
+.avatar-plus {
+  min-width: 50px;
+  min-height: 50px;
+  font-size: 16px;
+}
+
+body .of-person-avatar {
+  width: 64px;
+  height: 64px;
+  flex: none;
+}
+
+body .of-person,
+body .of-recipients button {
+  min-height: 94px;
+  gap: 14px;
+}
+
+.planner-profile {
+  display: flex;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--planner-line);
+  background: #fff;
+  flex: none;
+}
+
+.planner-profile .person-name {
+  color: #23304b;
+}
+
+.planner-profile .person-role {
+  display: block;
+  color: #68758e;
+}
+
+@media (min-width: 581px) {
+  .planner-workspace {
+    height: clamp(260px, calc(100dvh - 535px), 400px);
+  }
+}
+
+@media (max-width: 1100px) {
+  .topbar .breadcrumb {
+    display: none;
+  }
+  .topbar .global-search {
+    flex: 1;
+    width: 160px;
+  }
+}
+
+@container uat-main (max-width: 850px) {
+  .uat-manager-review-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .uat-manager-review-grid > .ws-project-roster {
+    order: -1;
+  }
+  .uat-manager-review-grid .ws-project-roster ul {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@container uat-main (max-width: 560px) {
+  .uat-start-team-columns,
+  .ws-team-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .topbar .global-search {
+    display: none;
+  }
+  .topbar .breadcrumb,
+  .topbar .top-divider {
+    display: none;
+  }
+  .topbar {
+    padding-inline: 12px;
+    gap: 8px;
+  }
+  .profile-trigger {
+    flex: 1;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+  .profile-trigger .profile-text {
+    display: block;
+    max-width: 180px;
+  }
+  .ws-project-workspace,
+  .uat-tester-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ws-project-workspace {
+    overflow: auto;
+  }
+  .ws-project-main {
+    overflow: visible;
+  }
+  .ws-project-roster {
+    border-inline-start: 0;
+    border-block-start: 1px solid var(--line);
+  }
+  .ws-project-roster ul {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .uat-tester-side {
+    grid-row: 1;
+    max-height: 360px;
+    border-inline-start: 0;
+    border-block-end: 1px solid var(--line);
+  }
+  .planner-profile {
+    display: flex;
+    padding: 14px;
+  }
+}
+
+@media (max-width: 420px) {
+  .profile-trigger .profile-text {
+    max-width: 125px;
+  }
+  .profile-trigger strong {
+    font-size: 18px;
+  }
+  .profile-trigger > svg {
+    display: none;
+  }
+  .topbar > .icon-btn {
+    padding-inline: 4px;
+    width: 30px;
+  }
+  .ws-feedback-person {
+    min-width: 0;
+    width: 100%;
+  }
+}
