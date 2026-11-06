@@ -1,0 +1,16 @@
+{
+  "name": "pre-shipment-prototype",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Interactive UAT and customer acceptance workflow prototype",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node serve.mjs",
+    "test:gui": "node tests/gui/run.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}

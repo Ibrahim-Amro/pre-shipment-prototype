@@ -1,5 +1,8 @@
 (() => {
 'use strict';
+const launchParams=new URLSearchParams(location.search);
+const embeddedRole=launchParams.get('multiView')==='1'&&['manager','developer','tester','customer'].includes(launchParams.get('workspaceRole'))?launchParams.get('workspaceRole'):null;
+if(embeddedRole)document.body.classList.add('four-view-child');
 const paths={
 'layout-dashboard':'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',
 'folder':'M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z',
@@ -123,6 +126,13 @@ let loggedIn=false,dropdown=false;
 let theme=localStorage.getItem('pre-shipment-theme')||'light';document.documentElement.dataset.theme=theme;
 const app=document.getElementById('app');
 const A=window.A={state,icon,escape:esc,
+ refreshWorkspace(){
+  const latest=readWorkspace();
+  if(!latest?.projects)return false;
+  applyWorkspace(mergeWorkspace(latest));
+  workspaceBaseline=structuredClone(latest);
+  return true;
+ },
  save(){
   const next=mergeWorkspace(readWorkspace()||{});
   localStorage.setItem(workspaceStorageKey,JSON.stringify(next));
@@ -152,17 +162,17 @@ const A=window.A={state,icon,escape:esc,
  async copy(text){try{await navigator.clipboard.writeText(text);A.toast('Copied to clipboard');}catch{A.modal(`<div class="modal-header"><h2>Copy this text</h2><button class="icon-btn" onclick="A.closeModal()">${icon('x')}</button></div><div class="modal-body"><textarea class="input" rows="7">${esc(text)}</textarea></div>`,'');}},
  navigate(page){if(page==='projects')page='dashboard';state.page=page;dropdown=false;A.render();document.getElementById('main-content')?.scrollTo(0,0);document.querySelector('.uat-workspace-layout')?.scrollTo(0,0);},
  render(){if(!loggedIn)return renderLogin();renderShell();},
- switchRole(role){const employee=demoEmployee(role);if(!['manager','developer','tester'].includes(role)||!employee)return;state.role=role;state.user=employee;state.page='dashboard';dropdown=false;loggedIn=true;A.closeModal();A.render();A.toast(`${capitalize(role)} workspace opened`);},
+ switchRole(role){if(embeddedRole&&role!==embeddedRole)return;const employee=demoEmployee(role);if(!['manager','developer','tester'].includes(role)||!employee)return;state.role=role;state.user=employee;state.page='dashboard';dropdown=false;loggedIn=true;A.closeModal();A.render();A.toast(`${capitalize(role)} workspace opened`);},
  openProject:(id,caseId)=>Workspaces.openProject(id,caseId),
  openIssue:id=>Workspaces.issueDetails(id),
  simulate(title,callback,delay=1800){A.modal(`<div class="modal-body loading-panel"><div class="spinner"></div><h3>${esc(title)}</h3><p>Preparing your sample results…</p><div class="demo-mode" style="margin-top:18px">${icon('sparkles',12)} Simulated AI analysis</div></div>`,'');setTimeout(callback,delay);},
- setTheme(value){theme=value;document.documentElement.dataset.theme=value;localStorage.setItem('pre-shipment-theme',value);if(loggedIn&&state.page==='settings')A.render();},
+ setTheme(value){theme=value;document.documentElement.dataset.theme=value;localStorage.setItem('pre-shipment-theme',value);if(loggedIn&&state.page==='settings')A.render();if(embeddedRole)window.parent.FourView?.refreshPanel?.(embeddedRole);},
  login(e){e.preventDefault();const username=document.getElementById('login-user').value.trim().toLowerCase();const password=document.getElementById('login-password').value;let role,employee;if(username==='admin'&&password==='admin'){role='manager';employee=demoEmployee(role);}else{const as=state.assignments.find(x=>x.username.toLowerCase()===username&&x.password===password);if(as){employee=state.employees.find(x=>x.id===as.employeeId);role=employee?.role;}else if(['developer','tester','manager'].includes(username)&&password==='admin'){role=username;employee=demoEmployee(role);}}if(!employee||!['manager','developer','tester'].includes(role)){document.getElementById('login-error').textContent='Check your username and password. Demo manager: admin / admin.';return;}loggedIn=true;state.role=role;state.user=employee;state.page='dashboard';const btn=document.querySelector('.login-submit');btn.innerHTML='<span>Opening your workspace…</span>';btn.disabled=true;setTimeout(()=>A.render(),450);},
- logout(){loggedIn=false;dropdown=false;A.closeModal();renderLogin();},
- toggleProfile(){dropdown=!dropdown;const old=document.getElementById('profile-menu');if(old)old.remove();if(dropdown){const el=document.createElement('div');el.id='profile-menu';el.className='dropdown';el.innerHTML=`<div class="dropdown-header">${A.person(state.user)}<p class="person-meta">Switch roles to try every workflow</p></div>${['manager','developer','tester'].map(r=>`<button class="${state.role===r?'role-selected':''}" onclick="A.switchRole('${r}')">${icon(r==='manager'?'users':r==='developer'?'code':'bug',16)}${capitalize(r)} workspace <span class="spacer"></span>${state.role===r?icon('check',14):''}</button>`).join('')}<button onclick="Beta.openInvitation()">${icon('external-link',16)}Customer preview</button><div class="divider" style="margin:5px 0"></div><button onclick="A.navigate('settings')">${icon('settings',16)}Workspace settings</button><button onclick="A.logout()">${icon('log-out',16)}Sign out</button>`;const frame=document.querySelector('.app-window');frame.appendChild(el);el.style.top=(document.querySelector('.profile-trigger').getBoundingClientRect().bottom-frame.getBoundingClientRect().top+12)+'px';}},
+ logout(){if(embeddedRole)return;loggedIn=false;dropdown=false;A.closeModal();renderLogin();},
+ toggleProfile(){dropdown=!dropdown;const old=document.getElementById('profile-menu');if(old)old.remove();if(dropdown){const el=document.createElement('div');el.id='profile-menu';el.className='dropdown';el.innerHTML=`<div class="dropdown-header">${A.person(state.user)}<p class="person-meta">${embeddedRole?'This panel stays signed in as this user.':'Switch roles to try every workflow'}</p></div>${(embeddedRole?[]:['manager','developer','tester']).map(r=>`<button class="${state.role===r?'role-selected':''}" onclick="A.switchRole('${r}')">${icon(r==='manager'?'users':r==='developer'?'code':'bug',16)}${capitalize(r)} workspace <span class="spacer"></span>${state.role===r?icon('check',14):''}</button>`).join('')}${embeddedRole?'':`<button onclick="Beta.openInvitation()">${icon('external-link',16)}Customer preview</button>`}<div class="divider" style="margin:5px 0"></div><button onclick="A.navigate('settings')">${icon('settings',16)}Workspace settings</button>${embeddedRole?'':`<button onclick="A.logout()">${icon('log-out',16)}Sign out</button>`}`;const frame=document.querySelector('.app-window');frame.appendChild(el);el.style.top=(document.querySelector('.profile-trigger').getBoundingClientRect().bottom-frame.getBoundingClientRect().top+12)+'px';}},
  searchGlobal(value){if(!value.trim()){document.getElementById('global-results')?.remove();return;}const q=value.toLowerCase();const scope=Workspaces.overviewData();const ps=scope.projects.filter(p=>p.name.toLowerCase().includes(q)).sort(ProjectPriority.compare);const issues=scope.issues.filter(i=>i.title.toLowerCase().includes(q));let el=document.getElementById('global-results');if(!el){el=document.createElement('div');el.id='global-results';el.className='dropdown';el.style.cssText='right:190px;width:360px;max-height:400px;overflow:auto';document.querySelector('.app-window').appendChild(el);}el.innerHTML=`<div class="dropdown-header"><strong>Search results</strong><small>${ps.length+issues.length} results in your workspace</small></div>${ps.map(p=>`<button onclick="A.clearSearch();A.openProject('${p.id}')">${icon('folder',15)}${esc(p.name)}<span class="spacer"></span>${ProjectPriority.badge(p)}</button>`).join('')}${issues.map(i=>`<button onclick="A.clearSearch();A.openIssue('${i.id}')">${icon('bug',15)}<span>${esc(i.title)}</span></button>`).join('')}${!ps.length&&!issues.length?'<p class="muted" style="padding:12px">No results. Try “Patient” or “upload”.</p>':''}`;},
  clearSearch(){document.getElementById('global-results')?.remove();const s=document.getElementById('global-input');if(s)s.value='';},
- markRead(id){const n=state.notifications.find(n=>n.id===id);if(n){n.read=true;A.save();A.navigate(n.page||'dashboard');}},
+ markRead(id){const n=A.visibleNotifications().find(n=>n.id===id);if(n){n.read=true;A.save();A.navigate(n.page||'dashboard');}},
  markAllRead(){A.visibleNotifications().forEach(n=>n.read=true);A.save();A.render();A.toast('You’re all caught up');},
  notificationPrefs(e){localStorage.setItem('pre-shipment-alerts',e.checked?'on':'off');A.toast(e.checked?'Demo notifications enabled':'Demo notifications paused');},
  editProfile(){A.modal(`<div class="modal-header"><h2>Edit profile</h2><button class="icon-btn" onclick="A.closeModal()">${icon('x')}</button></div><form onsubmit="A.saveProfile(event)"><div class="modal-body"><div class="person-edit-header">${A.person(state.user)}</div><div class="field"><label>Full name</label><input id="profile-name" value="${esc(state.user.name)}" required></div><div class="field"><label>Job title</label><input id="profile-title" value="${esc(state.user.title)}" required></div></div><div class="modal-footer"><button type="button" class="btn" onclick="A.closeModal()">Cancel</button><button class="btn primary">Save changes</button></div></form>`,'');},
@@ -176,11 +186,15 @@ const A=window.A={state,icon,escape:esc,
  forgot(){A.modal(`<div class="modal-header"><h2>Demo sign-in details</h2><button class="icon-btn" onclick="A.closeModal()">${icon('x')}</button></div><div class="modal-body"><p>Use <strong>admin / admin</strong> to explore the manager workspace.</p><p style="margin-top:14px">Use the Developer, Tester, or Manager shortcuts to explore an employee workspace. For a new assignment, use the email and password generated in the project invitation.</p><div class="info-box" style="margin-top:18px">${icon('key')}Assignment keys are included in each simulated job assignment email.</div></div><div class="modal-footer"><button class="btn primary" onclick="A.closeModal()">Back to sign in</button></div>`,'');},
 
 };
-A.visibleNotifications=()=>state.notifications.filter(n=>{
- if(n.betaFeedbackId)return state.role==='manager'&&n.employeeId===state.user.id;
- const recipientRole=n.role==='owner'?'manager':n.role;
- return (!n.employeeId||n.employeeId===state.user.id)&&(!recipientRole||recipientRole===state.role);
+A.notificationsFor=(role,employeeId)=>state.notifications.filter(notice=>{
+ if(notice.employeeId)return notice.employeeId===employeeId&&(!notice.role||notice.role===role);
+ const recipientRole=notice.role==='owner'?'manager':notice.role||'manager';
+ const project=state.projects.find(item=>item.id===notice.projectId);
+ const recipient=(project?.team||[]).map(id=>state.employees.find(person=>person.id===id))
+  .find(person=>person?.role===recipientRole)||demoEmployee(recipientRole);
+ return role===recipientRole&&recipient?.id===employeeId;
 });
+A.visibleNotifications=()=>A.notificationsFor(state.role,state.user.id);
 function renderRequests(){if(state.role!=='manager'||!state.requests?.length)return '';return `<div class="section-heading"><h2>Team support requests</h2><span class="count-bubble">${state.requests.filter(r=>r.status==='Pending').length} pending</span></div>${state.requests.map(r=>`<div class="card card-pad" style="margin-bottom:15px"><div class="row"><span class="activity-icon" style="width:36px;height:36px">${icon('user-plus',19)}</span><div><h3 style="font-size:13px">Additional support for ${esc(state.projects.find(p=>p.id===r.projectId)?.name||'a release')}</h3><div class="person-request-author">${A.person(state.employees.find(person=>person.name===r.requestedBy)||{name:r.requestedBy},'Project manager')}</div></div><span class="spacer"></span>${A.badge(r.status,r.status==='Pending'?'amber':r.status==='Approved'?'green':'gray')}</div><p class="muted" style="font-size:11px;margin-top:13px">${esc(r.reason)}</p><div class="row person-request-row" style="margin-top:15px"><div class="person-request-team">${(r.employees||[]).map(id=>A.person(id)).join('')}</div><span class="spacer"></span>${r.status==='Pending'?`<button class="btn small" onclick="A.reviewRequest('${r.id}')">Review request ${icon('arrow-right',12)}</button>`:''}</div></div>`).join('')}<div class="section-heading" style="margin-top:24px"><h2>Workspace updates</h2></div>`;}
 A.reviewRequest=id=>{if(state.role!=='manager')return;const r=state.requests.find(r=>r.id===id);const p=state.projects.find(p=>p.id===r.projectId);A.modal(`<div class="modal-header"><h2>Review additional support</h2>${closeBtn()}</div><div class="modal-body"><div class="eyebrow">${esc(p?.name||'Release support')} · ${esc(r.priority)}</div><p style="margin-top:13px">${esc(r.reason)}</p><div class="stack" style="margin-top:22px">${r.employees.map(id=>state.employees.find(e=>e.id===id)).filter(Boolean).map(e=>`<div class="row" style="padding:13px;background:var(--surface-2);border-radius:8px">${A.person(e)}<span class="spacer"></span>${A.badge(e.available?'Available':'On holiday',e.available?'green':'gray')}</div>`).join('')}</div><div class="info-box" style="margin-top:22px">${icon('mail',18)}Approving adds these people to the release team and generates their simulated job assignment emails and acceptance keys.</div></div><div class="modal-footer"><button class="btn" onclick="A.decideRequest('${id}',false)">Decline request</button><button class="btn primary" onclick="A.decideRequest('${id}',true)">${icon('check',14)}Approve & assign</button></div>`);};
 A.assignSupport=(project,employeeIds)=>{
@@ -207,14 +221,14 @@ ${state.user.name} · Pre-Shipment`;
   state.notifications.unshift({id:'notice-'+Date.now()+'-'+employeeId,employeeId,title:'A new project has been assigned',body:project.name,page:'projects',time:'Just now',read:false,type:'assignment'});
  }
 };
-A.decideRequest=(id,approved)=>{if(state.role!=='manager')return;const r=state.requests.find(r=>r.id===id);if(!r||r.status!=='Pending')return;r.status=approved?'Approved':'Declined';const p=state.projects.find(p=>p.id===r.projectId);if(approved&&p)A.assignSupport(p,r.employees);state.notifications.unshift({id:'n'+Date.now(),title:approved?'Support request approved':'Support request declined',body:`${p?.name||'Release'} · ${approved?'The additional team is assigned and invitations are in the simulated outbox.':'The manager has been notified.'}`,time:'Just now',read:false,page:'team',type:'users'});A.save();A.closeModal();A.render();A.toast(approved?'Request approved. Assignment emails generated.':'Request declined. Manager notified.');};
+A.decideRequest=(id,approved)=>{if(state.role!=='manager')return;const r=state.requests.find(r=>r.id===id);if(!r||r.status!=='Pending')return;r.status=approved?'Approved':'Declined';const p=state.projects.find(p=>p.id===r.projectId);if(approved&&p)A.assignSupport(p,r.employees);const recipient=state.employees.find(person=>person.name===r.requestedBy)||state.user;state.notifications.unshift({id:'n'+Date.now(),employeeId:recipient.id,role:recipient.role,title:approved?'Support request approved':'Support request declined',body:`${p?.name||'Release'} · ${approved?'The additional team is assigned and invitations are in the simulated outbox.':'The manager has been notified.'}`,time:'Just now',read:false,page:'team',type:'users'});A.save();A.closeModal();A.render();A.toast(approved?'Request approved. Assignment emails generated.':'Request declined. Manager notified.');};
 function capitalize(s){return s.charAt(0).toUpperCase()+s.slice(1);}
 function closeBtn(){return `<button class="icon-btn" onclick="A.closeModal()" aria-label="Close dialog">${icon('x')}</button>`;}
 function brand(){return `<div class="brand"><div class="brand-icon">${icon('shield-check',31)}</div><div><div class="brand-name">Pre-Shipment<span style="font-size:7px;vertical-align:super;margin-left:2px;font-weight:500">™</span></div><div class="brand-by">By Pfizer</div></div></div>`;}
 function titlebar(betaWindow=false){return `<div class="titlebar"><span class="mini-icon">${icon('check',10)}</span>Pre-Shipment<span style="color:#c7cfdd">·</span>By Pfizer<span class="spacer"></span><span style="font-size:8px;letter-spacing:.4px">INTERACTIVE PROTOTYPE</span><div class="window-controls"><button title="Compact view" onclick="A.toast('The workspace automatically fits your screen')">${icon('minus',12)}</button><button title="Resize workspace" onclick="document.querySelector('.app-window,.login-window').classList.toggle('expanded');A.toast('Workspace fitted to your screen')">${icon('maximize',10)}</button><button title="${betaWindow?'Close beta window':'Sign out'}" onclick="${betaWindow?'window.close()':'A.logout()'}">${icon('x',12)}</button></div></div>`;}
 function renderLogin(mode='choice',projectId=null){app.innerHTML=`<section class="login-window">${titlebar()}<div class="login-layout"><div class="login-story">${brand()}<h1>Great releases<br>begin with<br>confidence.</h1><p>Bring your people, projects, and quality checks together. Ship what’s next, with certainty.</p><div class="login-trust">${icon('shield-check',15)}One workspace. Every step to shipment.</div><img class="pfizer-white" src="pfizer.svg" alt="Pfizer"><div class="login-orbit"></div><span style="position:absolute;bottom:32px;right:30px;font-size:8px;color:#b6caff">BUILD BETTER. SHIP CONFIDENTLY.</span></div><div class="login-form-side">${mode==='employee'?employeeSignIn():mode==='beta'?Beta.keyForm(projectId):Beta.entryChoices()}</div></div></section>`;}
 function employeeSignIn(){return `${Beta.backButton()}<div class="eyebrow">YOUR RELEASE WORKSPACE</div><h2>Welcome back.</h2><p>Sign in to see what’s moving forward.</p><form onsubmit="A.login(event)"><div class="field"><label for="login-user">Username or work email</label><input id="login-user" name="username" autocomplete="username" placeholder="Enter your work email" value="admin" required></div><div class="field"><label for="login-password">Password</label><div class="password-wrap"><input id="login-password" name="password" type="password" autocomplete="current-password" value="admin" required><button type="button" aria-label="Show or hide password" onclick="const p=document.getElementById('login-password');p.type=p.type==='password'?'text':'password'">${icon('eye',16)}</button></div></div><div class="remember-row"><label><input type="checkbox" checked>Remember this workspace</label><button type="button" class="btn link" onclick="A.forgot()">Need help signing in?</button></div><div class="login-error" id="login-error" role="alert"></div><button class="btn primary login-submit">Sign in to workspace ${icon('arrow-right',16)}</button></form><div class="demo-hint">Demo manager access <code>admin</code> / <code>admin</code></div><div class="explore-label">OR EXPLORE A ROLE</div><div class="demo-roles"><button onclick="A.switchRole('developer')">${icon('code',13)}Developer</button><button onclick="A.switchRole('tester')">${icon('bug',13)}Tester</button><button onclick="A.switchRole('manager')">${icon('users',13)}Manager</button></div>`;}
-function navItem(page,label,ico,count){return `<button class="nav-item ${state.page===page||(state.role==='manager'&&page==='dashboard'&&state.page==='projects')?'active':''}" onclick="A.navigate('${page}')">${icon(ico)}${label}${count?`<span class="nav-count">${count}</span>`:''}</button>`;}
+function navItem(page,label,ico,count){return `<button data-page="${page}" class="nav-item ${state.page===page||(state.role==='manager'&&page==='dashboard'&&state.page==='projects')?'active':''}" onclick="A.navigate('${page}')">${icon(ico)}${label}${count?`<span class="nav-count">${count}</span>`:''}</button>`;}
 function renderShell(){const unread=A.visibleNotifications().filter(n=>!n.read).length;const scope=Workspaces.overviewData();app.innerHTML=`<section class="app-window">${titlebar()}<div class="app-layout"><aside class="sidebar" id="sidebar">${brand()}<button class="workspace-selector" onclick="A.toggleProfile()"><span class="ws-box">P</span><span><strong>Pfizer workspace</strong><small>${capitalize(state.role)} access</small></span><span class="spacer"></span>${icon('chevron-down',12)}</button><div class="nav-label">WORKSPACE</div><nav>${navItem('dashboard',state.role==='manager'?'Project stages':'Overview','layout-dashboard')}${navItem('issues',state.role==='developer'?'My findings':'Findings','bug',scope.issues.filter(i=>i.status!=='Resolved').length)}${navItem('feedback',state.role==='tester'?'Customer pre-feedback':'Feedback','message-square')}${navItem('messages','Messages','mail',unread)}</nav><div class="sidebar-bottom">${navItem('settings','Settings','settings')}<button class="nav-item" onclick="A.help()">${icon('help-circle')}Help & getting started</button><div class="sidebar-footer"><img src="pfizer.svg" alt="Pfizer"><span>Pre-Shipment v1.0</span></div></div></aside><div class="main-shell"><header class="topbar"><button class="icon-btn mobile-menu" aria-label="Toggle navigation" onclick="document.getElementById('sidebar').classList.toggle('open')">${icon('menu')}</button><div class="breadcrumb"><span class="muted">Workspace</span>${icon('chevron-right',11)}<span>${pageName()}</span></div><div class="global-search">${icon('search',14)}<input id="global-input" placeholder="Search anything…" aria-label="Search projects and findings" oninput="A.searchGlobal(this.value)"><kbd>⌘ K</kbd></div><button class="icon-btn" title="${theme==='light'?'Switch to dark theme':'Switch to light theme'}" onclick="A.setTheme('${theme==='light'?'dark':'light'}');A.render()">${icon(theme==='light'?'moon':'sun',16)}</button><button class="icon-btn" title="Messages and notifications" onclick="A.navigate('messages')">${icon('bell',17)}${unread?'<span class="notify-dot"></span>':''}</button><div class="top-divider"></div><button class="profile-trigger" onclick="A.toggleProfile()">${A.avatar(state.user,33)}<span class="profile-text"><strong>${esc(state.user.name)}</strong><small>${capitalize(state.role)}</small></span>${icon('chevron-down',12)}</button></header><div class="uat-workspace-layout"><main class="main-content" id="main-content"><div class="page-in">${renderPage()}</div></main>${UatOverview.rail()}</div></div></div></section>`;}
 function pageName(){return {dashboard:state.role==='manager'?'Project stages':'Overview',projects:state.role==='manager'?'Project stages':'Projects',issues:'Findings',feedback:state.role==='tester'?'Customer pre-feedback':'Feedback',team:'Team members',reports:'Reports & insights',messages:'Messages',settings:'Settings'}[state.page]||'Overview';}
 function header(eyebrow,title,desc,action){return `<div class="page-header"><div><div class="eyebrow">${eyebrow}</div><h1>${title}</h1><p>${desc}</p></div><div class="header-actions">${action||''}</div></div>`;}
@@ -227,13 +241,45 @@ A.supportReply=()=>{if(!document.getElementById('support-message').value.trim())
 document.addEventListener('keydown',e=>{if(e.key==='Tab'&&document.querySelector('.modal-content')){const nodes=[...document.querySelectorAll('.modal-content button:not(:disabled),.modal-content input:not(:disabled),.modal-content select:not(:disabled),.modal-content textarea:not(:disabled),.modal-content a[href],.modal-content summary')].filter(el=>el.getClientRects().length);const first=nodes[0],last=nodes[nodes.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}}if(e.key==='Escape'){A.closeModal();document.getElementById('profile-menu')?.remove();document.getElementById('global-results')?.remove();dropdown=false;}if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();document.getElementById('global-input')?.focus();}});
 document.addEventListener('click',e=>{if(dropdown&&!e.target.closest('.profile-trigger,.workspace-selector,#profile-menu')){document.getElementById('profile-menu')?.remove();dropdown=false;}if(!e.target.closest('.global-search,#global-results'))document.getElementById('global-results')?.remove();});
 function showSplash(){if(!sessionStorage.getItem('pre-shipment-launched')){sessionStorage.setItem('pre-shipment-launched','1');const splash=document.createElement('div');splash.className='splash';splash.innerHTML=`<div class="splash-window"><img src="pfizer.svg" alt="Pfizer"><h1>Pre-Shipment</h1><p>Confidence before every release</p><div class="splash-line"><span></span></div><p class="splash-note">By Pfizer · Prototype workspace</p></div>`;document.body.appendChild(splash);setTimeout(()=>{splash.classList.add('fade');setTimeout(()=>splash.remove(),450);},1800);}}
+A.refreshNotifications=()=>{
+ if(!loggedIn)return;
+ const unread=A.visibleNotifications().filter(notice=>!notice.read).length;
+ const bell=document.querySelector('.topbar [title="Messages and notifications"]');
+ if(bell)bell.innerHTML=icon('bell',17)+(unread?'<span class="notify-dot"></span>':'');
+ const messages=document.querySelector('[data-page="messages"]');
+ if(messages){
+  messages.querySelector('.nav-count')?.remove();
+  if(unread)messages.insertAdjacentHTML('beforeend',`<span class="nav-count">${unread}</span>`);
+ }
+};
+A.openWorkspace=(role,employeeId,projectId)=>{
+ if(role==='customer'){
+  loggedIn=false;
+  state.role='customer';
+  state.user={id:'customer-preview',name:'Jordan Lee',role:'customer'};
+  Beta.startEmbedded(projectId);
+  return true;
+ }
+ const project=state.projects.find(item=>item.id===projectId);
+ const member=(project?.team||[]).map(id=>state.employees.find(person=>person.id===id)).find(person=>person?.role===role);
+ const employee=state.employees.find(person=>person.id===employeeId&&person.role===role)||member||demoEmployee(role);
+ if(!employee||!['manager','developer','tester'].includes(role))return false;
+ state.role=role;state.user=employee;state.page='dashboard';loggedIn=true;dropdown=false;
+ A.render();
+ if(project){
+  if(role==='manager')UatManager.openProject(project.id);
+  else if(Workspaces.hasAcceptedProject(project.id))Workspaces.openProject(project.id);
+ }
+ return true;
+};
 window.addEventListener('storage',event=>{
- if(event.key!==workspaceStorageKey||!event.newValue)return;
- const latest=readWorkspace();
- if(!latest?.projects)return;
- applyWorkspace(mergeWorkspace(latest));
- workspaceBaseline=structuredClone(latest);
- if(!loggedIn||document.querySelector('.modal-content')||document.activeElement?.closest('form'))return;
+ if(event.key!==workspaceStorageKey||!event.newValue||!A.refreshWorkspace())return;
+ window.FourView?.onWorkspaceSync?.();
+ if(embeddedRole==='customer'){Beta.onWorkspaceSync();return;}
+ if(!loggedIn)return;
+ A.refreshNotifications();
+ if(window.UatTester?.onWorkspaceSync?.())return;
+ if(document.querySelector('.modal-content')||document.activeElement?.closest('form'))return;
  const mainScroll=document.getElementById('main-content')?.scrollTop||0;
  const layoutScroll=document.querySelector('.uat-workspace-layout')?.scrollTop||0;
  dropdown=false;
@@ -262,5 +308,7 @@ const restoredReviews=UatWorkflow.restoreReviewQueues();
 if(demoUpdated||restoredInvitations||restoredReviews)A.save();
 window.OwnerFlow.open=()=>UatManager.newProject();
 
-window.initBeta({A,app,state,icon,esc,brand,titlebar,closeBtn,capitalize,renderLogin,showSplash,readWorkspace,workspaceStorageKey});
+window.initBeta({A,app,state,icon,esc,brand,titlebar,closeBtn,capitalize,renderLogin,showSplash,readWorkspace});
+if(embeddedRole)A.openWorkspace(embeddedRole,launchParams.get('employee'),launchParams.get('project'));
+window.FourView?.mount();
 })();

@@ -26,6 +26,14 @@
   const role = () => state().role || 'developer';
   const roleName = r => ({developer:'Developer',tester:'QA engineer',manager:'Project manager'}[r] || r);
   const people = r => (state().employees || []).filter(e => !r || e.role === r);
+  const projectDevelopers = id => people('developer').filter(person=>person.available!==false&&(project(id)?.team||[]).includes(person.id));
+  function validateRequiredText(form) {
+    for(const input of form.querySelectorAll('input[required],textarea[required]')) {
+      input.setCustomValidity(input.value.trim() ? '' : 'Enter a value with visible text.');
+      input.oninput = () => input.setCustomValidity('');
+    }
+    return form.reportValidity();
+  }
   const isDone = p => ProjectPriority.of(p).key === 'completed';
   const allProjects = () => state().projects || [];
   W.hasAcceptedProject = function (projectId) {
@@ -60,9 +68,13 @@
   const projectMark = p => `<span class="ws-project-mark project-priority-mark" data-project-priority="${ProjectPriority.of(p).key}">${esc(p.abbr || p.name.split(' ').map(s=>s[0]).slice(0,2).join(''))}</span>`;
   const touchProject = id => {const p=project(id);if(p)p.updatedAt=new Date().toISOString();};
   const refresh = () => { app().save(); app().render(); };
-  const notify = (title, text, target='manager') => {
-    state().notifications = state().notifications || [];
-    state().notifications.unshift({id:'n-'+Date.now(),title,text,body:text,message:text,role:target,time:'Just now',createdAt:new Date().toISOString(),read:false,type:'info',page:'issues'});
+  const notify = (title, text, target='manager', employeeId, projectId) => {
+    const p=project(projectId);
+    const recipient=employee(employeeId) || (target==='manager'
+      ? (p?.team||[]).map(employee).find(person=>person?.role==='manager') || people('manager').find(person=>person.available!==false) || people('manager')[0]
+      : null);
+    if(!recipient||recipient.role!==target)return;
+    state().notifications.unshift({id:'n-'+crypto.randomUUID(),title,text,body:text,message:text,employeeId:recipient.id,role:recipient.role,time:'Just now',createdAt:new Date().toISOString(),read:false,type:'info',page:'issues'});
   };
   const header = (eyebrow, title, subtitle, action='') => `<div class="ws-page-header"><div><div class="eyebrow">${eyebrow}</div><h1>${title}</h1><p>${subtitle}</p></div><div class="ws-header-actions">${action}</div></div>`;
   const section = (title, subtitle='', action='') => `<div class="ws-section-heading"><div><h2>${title}</h2>${subtitle ? `<p>${subtitle}</p>` : ''}</div>${action}</div>`;
@@ -70,7 +82,7 @@
   const progress = (v, color='blue') => `<div class="ws-progress"><span class="ws-progress-fill ws-progress-${color}" style="width:${percent(v)}%"></span></div>`;
   const empty = (title, body, icon='check-circle') => `<div class="ws-empty"><span>${ico(icon,30)}</span><h3>${title}</h3><p>${body}</p></div>`;
   const assignments = () => (state().assignments || []).filter(a => a.employeeId === user().id);
-  const pending = () => role()==='manager'?[]:assignments().filter(a => UatWorkflow.stage(project(a.projectId))!=='awaiting').filter(a => !a.accepted && !(state().accepted || {})[a.id]).reverse();
+  const pending = () => role()==='manager'?[]:assignments().filter(a => UatWorkflow.stage(project(a.projectId))!=='awaiting').filter(a => !a.accepted && !(state().accepted || {})[a.id]).sort((a,b)=>ProjectPriority.compare(project(a.projectId),project(b.projectId)));
   function assignmentBanner() {
     const a = pending()[0];
     if (!a) {
@@ -84,12 +96,17 @@
   }
   W.overviewData = () => ({projects:myProjects(),issues:myIssues(),pending:pending()});
   function issuesTable(items, mode=role(), limit=0) {
-    const list = [...items].sort((a,b)=>severityOrder(a.severity)-severityOrder(b.severity)).slice(0,limit || 999);
+    const list = [...items].sort((a,b)=>
+      ProjectPriority.compare(project(a.projectId) || {id:a.projectId}, project(b.projectId) || {id:b.projectId}) ||
+      Number(a.status==='Resolved') - Number(b.status==='Resolved') ||
+      severityOrder(a.severity) - severityOrder(b.severity) ||
+      String(a.id).localeCompare(String(b.id), undefined, {numeric:true})
+    ).slice(0,limit || 999);
     if (!list.length) return empty('All clear for now','New findings and tasks will appear here as the team reviews your projects.');
     return `<div class="ws-table-wrap"><table class="ws-table"><thead><tr><th>Issue / task</th><th>Priority</th><th>${mode === 'manager' ? 'Developer' : 'AI urgency'}</th><th>Estimate</th><th>Status</th><th></th></tr></thead><tbody>${list.map(i=>{ const p=project(i.projectId); const assignee=employee(i.assignee); return `<tr><td><button class="ws-finding-project" onclick="Workspaces.openProject(${js(i.projectId)})">${esc(p ? p.name : 'Project')}</button><button class="ws-table-title" onclick="Workspaces.issueDetails(${js(i.id)})">${esc(i.title)}</button><span class="ws-table-sub">${esc(i.id)}</span></td><td>${badge(i.severity,severityColor(i.severity))}</td><td>${mode === 'manager' ? app().person(assignee || {name:'Unassigned'}, assignee ? roleName(assignee.role) : 'Awaiting assignment') : `<span class="ws-urgency ${urgent(i)>80?'ws-text-red':''}"><i style="width:${urgent(i)/4}px"></i>${urgent(i)}%</span>`}</td><td><span class="ws-estimate">${ico('clock',13)}${esc(i.estimate || '2h')}</span></td><td><span class="ws-status-dot ws-dot-${i.status==='Resolved'?'green':i.status==='In review'?'purple':i.status==='In progress'?'blue':'amber'}"></span>${esc(i.status)}</td><td>${mode === 'manager' && UatWorkflow.canReview(i) ? btn('Review','reviewFix',i.id,'ghost','arrow-right') : mode === 'developer' && canFix(i) ? btn('Apply fix','fixIssue',i.id,'ghost','arrow-up-right') : btn('View','issueDetails',i.id,'ghost','arrow-up-right')}</td></tr>` }).join('')}</tbody></table></div>`;
   }
   function riskRow(p) {
-    const risk=p.critical>0 || p.progress<70, val=risk?Math.max(72,98-Math.round(p.progress/3)):24;
+    const risk=['urgent','high'].includes(ProjectPriority.of(p).key), val=risk?Math.max(72,98-Math.round(p.progress/3)):24;
     return `<div class="ws-risk-row"><div class="ws-risk-project">${projectMark(p)}<div><button class="ws-table-title" onclick="Workspaces.openProject(${js(p.id)})">${esc(p.name)}</button><span class="ws-table-sub">${p.team?p.team.length:5} teammates · Due ${date(p.deadline)}</span></div></div><div class="ws-risk-progress"><span>${percent(p.progress)}% complete</span>${progress(p.progress)}</div><div class="ws-risk-score">${ProjectPriority.badge(p)}<span>${val}% ${risk?'deadline risk':'risk'}</span></div><button class="ws-icon-button" title="View project" onclick="Workspaces.openProject(${js(p.id)})">${ico('arrow-up-right',18)}</button></div>`;
   }
   function projectsPage() {
@@ -100,7 +117,7 @@
   function issuesPage() {
     const list=myIssues();
     const filtered=ui.issueFilter==='review'?list.filter(i=>i.status==='In review'):ui.issueFilter==='critical'?list.filter(i=>i.severity==='Critical'):ui.issueFilter==='resolved'?list.filter(i=>i.status==='Resolved'):list;
-    return header(role()==='manager'?'REVIEW & APPROVALS':role()==='tester'?'QUALITY CONTROL':'YOUR TASKS',role()==='manager'?'The review queue':role()==='tester'?'Findings & issues':'Issues & fixes',role()==='manager'?'Give completed work a thoughtful final check.':'A focused view of the work between here and a confident release.',role()==='tester'?btn('Report a finding','reportFinding',null,'primary','plus'):'')+`<div class="ws-toolbar"><div class="ws-filter-tabs">${[['all','All issues'],['critical','Critical'],['review','In review'],['resolved','Resolved']].map(([k,l])=>`<button class="${ui.issueFilter===k?'active':''}" onclick="Workspaces.filter('issueFilter','${k}')">${l}<span>${k==='all'?list.length:k==='critical'?list.filter(i=>i.severity==='Critical').length:k==='review'?list.filter(i=>i.status==='In review').length:list.filter(i=>i.status==='Resolved').length}</span></button>`).join('')}</div><span class="ws-sorted-by">${ico('sparkles',14)}Sorted by AI priority</span></div><div class="card ws-table-card">${issuesTable(filtered)}</div>`;
+    return header(role()==='manager'?'REVIEW & APPROVALS':role()==='tester'?'QUALITY CONTROL':'YOUR TASKS',role()==='manager'?'The review queue':role()==='tester'?'Findings & issues':'Issues & fixes',role()==='manager'?'Give completed work a thoughtful final check.':'A focused view of the work between here and a confident release.',role()==='tester'?btn('Report a finding','reportFinding',null,'primary','plus'):'')+`<div class="ws-toolbar"><div class="ws-filter-tabs">${[['all','All issues'],['critical','Critical'],['review','In review'],['resolved','Resolved']].map(([k,l])=>`<button class="${ui.issueFilter===k?'active':''}" onclick="Workspaces.filter('issueFilter','${k}')">${l}<span>${k==='all'?list.length:k==='critical'?list.filter(i=>i.severity==='Critical').length:k==='review'?list.filter(i=>i.status==='In review').length:list.filter(i=>i.status==='Resolved').length}</span></button>`).join('')}</div><span class="ws-sorted-by">${ico('sparkles',14)}Grouped by project · Open findings first</span></div><div class="card ws-table-card">${issuesTable(filtered)}</div>`;
   }
   function feedbackList() {
     if (!state().feedback || !state().feedback.length) {
@@ -179,7 +196,7 @@
     const a=assignments().find(x=>x.id===id), input=document.getElementById('ws-assignment-key');if(!a||!input)return;
     if(input.value.trim().toLowerCase()!==String(a.key).trim().toLowerCase()){const error=document.getElementById('ws-key-error');error.hidden=false;error.textContent='That key doesn’t match your invitation. Preview the email to find your personal key.';input.classList.add('ws-input-error');return;}
     a.accepted=true;touchProject(a.projectId);state().accepted=state().accepted||{};state().accepted[a.id]=true;state().accepted[a.projectId]=true;
-    notify('Assignment accepted',`${user().name} accepted their ${roleName(role()).toLowerCase()} assignment for ${project(a.projectId)?.name||'the project'}.`);
+    notify('Assignment accepted',`${user().name} accepted their ${roleName(role()).toLowerCase()} assignment for ${project(a.projectId)?.name||'the project'}.`,'manager',null,a.projectId);
     const next=ui.afterAcceptance?.assignmentId===a.id?ui.afterAcceptance.callback:null;ui.afterAcceptance=null;
     app().closeModal();refresh();app().toast('Assignment accepted. Your project is ready to work on.','success');if(next)setTimeout(next,180);
   };
@@ -258,8 +275,8 @@
   W.assignFinding = function(id) {
     const finding=issue(id);
     if(!finding||!canAssignFinding(finding))return;
-    const developers=people('developer').filter(person=>person.available!==false);
-    if(!developers.length){app().toast('No developers are available.','warning');return;}
+    const developers=projectDevelopers(finding.projectId);
+    if(!developers.length){app().toast('Add an available developer to this project before assigning a finding.','warning');return;}
     app().modal(`<div class="modal-header"><h2>Assign finding</h2>${btn('Close','close',null,'ghost')}</div>
       <div class="modal-body"><p class="ws-modal-intro">${esc(finding.title)}</p>
       <label class="field"><span>Developer</span><select id="ws-assign-developer">${developers.map(person=>`<option value="${esc(person.id)}" ${finding.assignee===person.id?'selected':''}>${esc(person.name)}</option>`).join('')}</select></label>
@@ -271,13 +288,16 @@
     if(!finding||!canAssignFinding(finding))return;
     const severity=document.getElementById('ws-assign-severity').value;
     const p=project(finding.projectId);
+    const developerId=document.getElementById('ws-assign-developer').value;
+    if(!projectDevelopers(finding.projectId).some(person=>person.id===developerId)){app().toast('Choose an available developer assigned to this project.','warning');return;}
     if(p&&severity!==finding.severity){
       p.critical=Math.max(0,(Number(p.critical)||0)+Number(severity==='Critical')-Number(finding.severity==='Critical'));
     }
-    finding.assignee=document.getElementById('ws-assign-developer').value;
+    finding.assignee=developerId;
     finding.severity=severity;
     finding.status='In progress';
     touchProject(finding.projectId);
+    notify('A finding is assigned to you',`${p?.name||'Project'} · ${finding.title}`,'developer',developerId,finding.projectId);
     app().closeModal();refresh();app().toast('Finding assigned to the developer.');
   };
   W.fixIssue = function(id) {
@@ -301,6 +321,9 @@
       const buildError=!buildVersion?'Enter a new build version.':buildVersion.toLowerCase()===previous.toLowerCase()?'Use a build version different from the build under test.':'';
       build.setCustomValidity(buildError);
     }
+    const notes=document.getElementById('ws-fix-notes');
+    notes.setCustomValidity(notes.value.trim() ? '' : 'Describe the change before submitting a fix.');
+    notes.oninput=()=>notes.setCustomValidity('');
     if(!form.reportValidity())return;
     ui.fixes[id]={
       notes:document.getElementById('ws-fix-notes').value.trim(),
@@ -368,48 +391,72 @@
   W.sendAnalysisFinding = function(runId,index) {
     const run=ui.runs[runId],f=run?.findings[index];if(!f||f.sent)return;
     ui.pendingFinding={runId,index};
-    const devs=people('developer').filter(e=>e.available!==false);
+    const devs=projectDevelopers(run.projectId);
+    if(!devs.length){app().toast('Add an available developer to this project before sending a finding.','warning');return;}
     app().modal(`<div class="modal-header"><div><div class="eyebrow">TURN INSIGHT INTO ACTION</div><h2>Send this finding to a developer</h2></div><button class="ws-icon-button" onclick="A.closeModal()">${ico('x',20)}</button></div><div class="modal-body"><div class="ws-fix-context">${ico('bug',20)}<div><strong>${esc(f.title)}</strong><span>${esc(project(run.projectId)?.name||'Project')}</span></div>${badge(f.severity,severityColor(f.severity))}</div><label class="field"><span>Assign developer</span><select class="input" id="ws-finding-dev">${devs.map(d=>`<option value="${esc(d.id)}">${esc(d.name)} · ${percent(d.load)}% workload</option>`).join('')}</select></label><label class="field"><span>Additional context</span><textarea class="input" id="ws-finding-note" rows="3" placeholder="Add any useful context for the developer...">Please review the reproduction scenario and confirm this finding before implementing a fix.</textarea></label></div><div class="modal-footer">${btn('Back to results','analysisResults',runId,'secondary')}${btn('Send finding','confirmSendFinding',null,'primary','send')}</div>`,'medium');
   };
   function newIssue(data) {
     state().issues=state().issues||[];
     const n=Math.max(20,...state().issues.map(i=>Number(String(i.id).replace(/\D/g,''))||0))+1;
     const created={id:'PS-'+String(n).padStart(3,'0'),status:'Open',estimate:'2h',deadline:project(data.projectId)?.deadline,...(role()==='tester'?{reportedBy:user().name,reportedById:user().id}:{}),...data};
-    state().issues.unshift(created);touchProject(data.projectId);const p=project(data.projectId);if(p){p.bugs=(Number(p.bugs)||0)+1;if(data.severity==='Critical')p.critical=(Number(p.critical)||0)+1;}return created;
+    state().issues.unshift(created);
+    touchProject(data.projectId);
+    const p=project(data.projectId);
+    if(p){
+      p.bugs=(Number(p.bugs)||0)+1;
+      if(data.severity==='Critical')p.critical=(Number(p.critical)||0)+1;
+      if(UatWorkflow.stage(p)==='customer'){
+        p.uat.stage='testing';
+        p.status='In progress';
+        p.progress=Math.min(99,Number(p.progress)||0);
+        notify('Customer acceptance paused',`${p.name} returned to UAT because a new finding needs testing and approval.`,'manager',null,p.id);
+      }
+    }
+    return created;
   }
   W.confirmSendFinding = function() {
-    const {runId,index}=ui.pendingFinding||{}, run=ui.runs[runId],f=run?.findings[index];if(!f)return;
+    const {runId,index}=ui.pendingFinding||{}, run=ui.runs[runId],f=run?.findings[index];if(!f||f.sent)return;
     const dev=document.getElementById('ws-finding-dev').value,note=document.getElementById('ws-finding-note').value;
+    if(!projectDevelopers(run.projectId).some(person=>person.id===dev)){app().toast('Choose an available developer assigned to this project.','warning');return;}
     const created=newIssue({...f,projectId:run.projectId,assignee:dev,description:f.description+(note?'\n\nTester notes: '+note:''),source:'AI '+(run.type==='code'?'code analysis':'GUI test')});
-    f.sent=true;f.issueId=created.id;notify('A new finding is assigned to you',`${user().name} sent “${f.title}” for review.`,'developer');app().save();app().render();W.analysisResults(runId);app().toast(`${created.id} created and sent to ${employee(dev)?.name||'the development team'}.`,'success');
+    f.sent=true;f.issueId=created.id;notify('A new finding is assigned to you',`${user().name} sent “${f.title}” for review.`,'developer',dev,run.projectId);app().save();app().render();W.analysisResults(runId);app().toast(`${created.id} created and sent to ${employee(dev)?.name||'the development team'}.`,'success');
   };
   W.reportFinding = function(projectId) {
     const active=myProjects().filter(p=>!isDone(p)).sort(ProjectPriority.compare);
     const selected=project(projectId)||active[0];if(selected&&!canWork(selected.id,()=>W.reportFinding(selected.id)))return;
-    app().modal(`<div class="modal-header"><div><div class="eyebrow">MAKE THE NEXT RELEASE BETTER</div><h2>Report a finding</h2><p>A useful report helps the team move from “what happened?” to “fixed.”</p></div><button class="ws-icon-button" onclick="A.closeModal()">${ico('x',20)}</button></div><div class="modal-body"><form id="ws-report-form"><div class="ws-form-grid"><label class="field ws-span-2"><span>Finding title <b>*</b></span><input class="input" id="ws-report-title" placeholder="A clear, specific description of the problem" required></label><label class="field"><span>Project <b>*</b></span><select class="input" id="ws-report-project" onchange="Workspaces.checkReportProject(this.value)">${active.map(p=>`<option value="${esc(p.id)}" ${p.id===selected?.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label><label class="field"><span>Category</span><select class="input" id="ws-report-category"><option>Functional</option><option>UI / UX</option><option>Performance</option><option>Security</option><option>Accessibility</option><option>Data integrity</option><option>Compatibility</option></select></label><label class="field"><span>Severity</span><select class="input" id="ws-report-severity"><option>Medium</option><option>Critical</option><option>High</option><option>Low</option></select></label><label class="field"><span>Environment <b>*</b></span><input class="input" id="ws-report-env" placeholder="e.g. Windows 11 · Chrome 130 · v2.4.0" value="Windows 11 · Chrome 130" required></label><label class="field ws-span-2"><span>Steps to reproduce <b>*</b></span><textarea class="input" id="ws-report-steps" rows="4" placeholder="1. Open the shipment form&#10;2. Enter...&#10;3. Click..." required></textarea></label><label class="field"><span>Expected behavior <b>*</b></span><textarea class="input" id="ws-report-expected" rows="3" placeholder="What should happen?" required></textarea></label><label class="field"><span>Actual behavior <b>*</b></span><textarea class="input" id="ws-report-actual" rows="3" placeholder="What happened instead?" required></textarea></label><label class="field"><span>Reproducibility</span><select class="input" id="ws-report-frequency"><option>Every time</option><option>Intermittent</option><option>Once</option></select></label><label class="field"><span>Assign to developer</span><select class="input" id="ws-report-dev"><option value="">Let the manager assign</option>${people('developer').map(e=>`<option value="${esc(e.id)}">${esc(e.name)}</option>`).join('')}</select></label><label class="ws-upload-inline ws-span-2">${ico('paperclip',22)}<span><strong>Attach evidence</strong><small>Screenshots, screen recordings, logs, or a sample file</small></span><input id="ws-report-evidence" type="file" multiple onchange="this.closest('label').querySelector('strong').textContent=Array.from(this.files).map(f=>f.name).join(', ')||'Attach evidence'"></label></div></form><div class="ws-prototype-note">${ico('info',14)}Attachments are represented by filename only and stay in this local demo.</div></div><div class="modal-footer">${btn('Cancel','close',null,'secondary')}${btn('Submit finding','submitFinding',null,'primary','send')}</div>`,'large');
+    app().modal(`<div class="modal-header"><div><div class="eyebrow">MAKE THE NEXT RELEASE BETTER</div><h2>Report a finding</h2><p>A useful report helps the team move from “what happened?” to “fixed.”</p></div><button class="ws-icon-button" onclick="A.closeModal()">${ico('x',20)}</button></div><div class="modal-body"><form id="ws-report-form"><div class="ws-form-grid"><label class="field ws-span-2"><span>Finding title <b>*</b></span><input class="input" id="ws-report-title" placeholder="A clear, specific description of the problem" required></label><label class="field"><span>Project <b>*</b></span><select class="input" id="ws-report-project" onchange="Workspaces.checkReportProject(this.value)">${active.map(p=>`<option value="${esc(p.id)}" ${p.id===selected?.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label><label class="field"><span>Category</span><select class="input" id="ws-report-category"><option>Functional</option><option>UI / UX</option><option>Performance</option><option>Security</option><option>Accessibility</option><option>Data integrity</option><option>Compatibility</option></select></label><label class="field"><span>Severity</span><select class="input" id="ws-report-severity"><option>Medium</option><option>Critical</option><option>High</option><option>Low</option></select></label><label class="field"><span>Environment <b>*</b></span><input class="input" id="ws-report-env" placeholder="e.g. Windows 11 · Chrome 130 · v2.4.0" value="Windows 11 · Chrome 130" required></label><label class="field ws-span-2"><span>Steps to reproduce <b>*</b></span><textarea class="input" id="ws-report-steps" rows="4" placeholder="1. Open the shipment form&#10;2. Enter...&#10;3. Click..." required></textarea></label><label class="field"><span>Expected behavior <b>*</b></span><textarea class="input" id="ws-report-expected" rows="3" placeholder="What should happen?" required></textarea></label><label class="field"><span>Actual behavior <b>*</b></span><textarea class="input" id="ws-report-actual" rows="3" placeholder="What happened instead?" required></textarea></label><label class="field"><span>Reproducibility</span><select class="input" id="ws-report-frequency"><option>Every time</option><option>Intermittent</option><option>Once</option></select></label><label class="field"><span>Assign to developer</span><select class="input" id="ws-report-dev"><option value="">Let the manager assign</option>${projectDevelopers(selected?.id).map(e=>`<option value="${esc(e.id)}">${esc(e.name)}</option>`).join('')}</select></label><label class="ws-upload-inline ws-span-2">${ico('paperclip',22)}<span><strong>Attach evidence</strong><small>Screenshots, screen recordings, logs, or a sample file</small></span><input id="ws-report-evidence" type="file" multiple onchange="this.closest('label').querySelector('strong').textContent=Array.from(this.files).map(f=>f.name).join(', ')||'Attach evidence'"></label></div></form><div class="ws-prototype-note">${ico('info',14)}Attachments are represented by filename only and stay in this local demo.</div></div><div class="modal-footer">${btn('Cancel','close',null,'secondary')}${btn('Submit finding','submitFinding',null,'primary','send')}</div>`,'large');
   };
   W.submitFinding = function() {
-    const form=document.getElementById('ws-report-form');if(!form.reportValidity())return;
+    const form=document.getElementById('ws-report-form');if(!form||!validateRequiredText(form))return;
     const get=id=>document.getElementById('ws-report-'+id).value;
     const selectedProjectId=get('project');if(!canWork(selectedProjectId,()=>W.reportFinding(selectedProjectId)))return;
+    if(get('dev')&&!projectDevelopers(selectedProjectId).some(person=>person.id===get('dev'))){app().toast('Choose an available developer assigned to this project.','warning');return;}
     const created=newIssue({title:get('title'),projectId:get('project'),category:get('category'),severity:get('severity'),environment:get('env'),steps:get('steps'),expected:get('expected'),actual:get('actual'),description:get('actual'),reproducibility:get('frequency'),assignee:get('dev'),evidence:Array.from(document.getElementById('ws-report-evidence').files).map(f=>f.name).join(', '),reportedBy:user().name,reportedById:user().id,source:'Tester report'});
-    notify('A new finding needs review',`${user().name} reported ${created.id}: ${created.title}.`,created.assignee?'developer':'manager');app().closeModal();refresh();app().toast(`${created.id} reported. Your team has been notified.`,'success');
+    notify('A new finding needs review',`${user().name} reported ${created.id}: ${created.title}.`,created.assignee?'developer':'manager',created.assignee,created.projectId);app().closeModal();refresh();app().toast(`${created.id} reported. Your team has been notified.`,'success');
   };
-  W.checkReportProject = id => canWork(id,()=>W.reportFinding(id));
+  W.checkReportProject = id => {
+    if(!canWork(id,()=>W.reportFinding(id)))return false;
+    const select=document.getElementById('ws-report-dev');
+    if(select){const previous=select.value;select.innerHTML='<option value="">Let the manager assign</option>'+projectDevelopers(id).map(person=>`<option value="${esc(person.id)}"${person.id===previous?' selected':''}>${esc(person.name)}</option>`).join('');}
+    return true;
+  };
   W.feedbackDetails = function(id) {
     const f=feedbackList().find(x=>x.id===id);if(!f)return;
     const name=f.name||f.customer||f.customerName||'Customer', reviewed=/approved|sent|resolved|reviewed/i.test(f.status||'');
     app().modal(`<div class="modal-header"><div><div class="eyebrow">CUSTOMER PRE-FEEDBACK · ${esc(f.id)}</div><h2>${esc(f.title||f.subject||'Customer feedback')}</h2></div><button class="ws-icon-button" onclick="A.closeModal()">${ico('x',20)}</button></div><div class="modal-body"><div class="ws-review-author"><div class="ws-feedback-person">${app().person({name,avatar:f.avatar>0&&f.avatar<=16?f.avatar:15},'Customer')}${f.email?`<p class="person-meta">${esc(f.email)}</p>`:''}</div>${badge(f.type||f.category||'Suggestion',/bug/i.test(f.type||f.category)?'amber':'purple')}</div><div class="ws-feedback-full"><p>${esc(f.description||f.body||f.message||f.content||'A customer has shared early feedback.')}</p></div><div class="ws-feedback-context"><div><span>Project</span><strong>${esc(project(f.projectId)?.name||'Customer preview')}</strong></div><div><span>Environment</span><strong>${esc(f.environment||'Chrome · Windows 11')}</strong></div><div><span>Review status</span>${badge(f.status||'New',reviewed?'green':'amber')}</div></div><div class="ws-ai-strip">${ico('sparkles',20)}<div><strong>AI triage suggestion</strong><p>${/bug/i.test(f.type||f.category)?'This describes a repeatable workflow problem. Confirm the scenario and approve it as a bug so a developer can investigate.':'This is a useful enhancement idea. Pass it to the development team with the customer context preserved.'}</p></div></div></div><div class="modal-footer">${btn('Close','close',null,'secondary')}${reviewed?'':btn(/bug/i.test(f.type||f.category)?'Approve as bug':'Send to developers','triageFeedback',id,'primary',/bug/i.test(f.type||f.category)?'check':'send')}</div>`,'large');
   };
   W.triageFeedback = function(id) {
-    const f=feedbackList().find(x=>x.id===id);if(!f)return;const isBug=/bug/i.test(f.type||f.category);
-    app().modal(`<div class="modal-header"><div><div class="eyebrow">CUSTOMER INSIGHT → TEAM ACTION</div><h2>${isBug?'Approve this as a bug':'Share a useful suggestion'}</h2></div><button class="ws-icon-button" onclick="A.closeModal()">${ico('x',20)}</button></div><div class="modal-body"><div class="ws-fix-context">${ico(isBug?'bug':'lightbulb',21)}<div><strong>${esc(f.title||f.subject)}</strong><span>Submitted by ${esc(f.name||f.customer||'a customer')}</span></div>${badge(isBug?'Bug':'Suggestion',isBug?'amber':'purple')}</div><p class="ws-modal-intro">${isBug?'Approving creates a trackable issue with the customer’s original context.':'The development team will receive the customer’s idea as an enhancement for review.'}</p><label class="field"><span>Assign developer</span><select class="input" id="ws-feedback-dev">${people('developer').filter(e=>e.available!==false).map(e=>`<option value="${esc(e.id)}">${esc(e.name)} · ${percent(e.load)}% workload</option>`).join('')}</select></label><label class="field"><span>Reviewer notes</span><textarea class="input" id="ws-feedback-notes" rows="3" placeholder="Add reproduction details, impact, or why this suggestion matters..."></textarea></label></div><div class="modal-footer">${btn('Cancel','close',null,'secondary')}<button class="btn primary" onclick="Workspaces.confirmTriage(${js(id)})">${ico(isBug?'check':'send',16)}${isBug?'Approve & create issue':'Send to development'}</button></div>`,'medium');
+    const f=feedbackList().find(x=>x.id===id);if(!f||/approved|sent|resolved|reviewed/i.test(f.status||''))return;const isBug=/bug/i.test(f.type||f.category);
+    const developers=projectDevelopers(f.projectId);
+    if(!developers.length){app().toast('Add an available developer to this project before forwarding feedback.','warning');return;}
+    app().modal(`<div class="modal-header"><div><div class="eyebrow">CUSTOMER INSIGHT → TEAM ACTION</div><h2>${isBug?'Approve this as a bug':'Share a useful suggestion'}</h2></div><button class="ws-icon-button" onclick="A.closeModal()">${ico('x',20)}</button></div><div class="modal-body"><div class="ws-fix-context">${ico(isBug?'bug':'lightbulb',21)}<div><strong>${esc(f.title||f.subject)}</strong><span>Submitted by ${esc(f.name||f.customer||'a customer')}</span></div>${badge(isBug?'Bug':'Suggestion',isBug?'amber':'purple')}</div><p class="ws-modal-intro">${isBug?'Approving creates a trackable issue with the customer’s original context.':'The development team will receive the customer’s idea as an enhancement for review.'}</p><label class="field"><span>Assign developer</span><select class="input" id="ws-feedback-dev">${developers.map(e=>`<option value="${esc(e.id)}">${esc(e.name)} · ${percent(e.load)}% workload</option>`).join('')}</select></label><label class="field"><span>Reviewer notes</span><textarea class="input" id="ws-feedback-notes" rows="3" placeholder="Add reproduction details, impact, or why this suggestion matters..."></textarea></label></div><div class="modal-footer">${btn('Cancel','close',null,'secondary')}<button class="btn primary" onclick="Workspaces.confirmTriage(${js(id)})">${ico(isBug?'check':'send',16)}${isBug?'Approve & create issue':'Send to development'}</button></div>`,'medium');
   };
   W.confirmTriage = function(id) {
-    const f=feedbackList().find(x=>x.id===id);if(!f)return;const isBug=/bug/i.test(f.type||f.category),dev=document.getElementById('ws-feedback-dev').value,notes=document.getElementById('ws-feedback-notes').value;
+    const f=feedbackList().find(x=>x.id===id);if(!f||/approved|sent|resolved|reviewed/i.test(f.status||''))return;const isBug=/bug/i.test(f.type||f.category),dev=document.getElementById('ws-feedback-dev').value,notes=document.getElementById('ws-feedback-notes').value;
+    if(!projectDevelopers(f.projectId).some(person=>person.id===dev)){app().toast('Choose an available developer assigned to this project.','warning');return;}
     f.status=isBug?'Approved':'Sent to developers';f.reviewedBy=user().name;
     const created=newIssue({title:f.title||f.subject,projectId:f.projectId,severity:isBug?'High':'Low',category:isBug?'Customer bug':'Enhancement',description:(f.description||f.body||f.message||f.content||'')+(notes?'\n\nReviewer notes: '+notes:''),assignee:dev,source:'Customer pre-feedback',customer:f.name||f.customer,estimate:isBug?'2h':'3h'});
-    f.issueId=created.id;notify(isBug?'A customer bug is ready to investigate':'A customer suggestion is ready to review',`${user().name} sent “${f.title||f.subject}” to the development team.`,'developer');app().closeModal();refresh();app().toast(isBug?`${created.id} created. Customer bug approved.`:'Suggestion sent to the development team.','success');
+    f.issueId=created.id;notify(isBug?'A customer bug is ready to investigate':'A customer suggestion is ready to review',`${user().name} sent “${f.title||f.subject}” to the development team.`,'developer',dev,f.projectId);app().closeModal();refresh();app().toast(isBug?`${created.id} created. Customer bug approved.`:'Suggestion sent to the development team.','success');
   };
   W.customerPreview = function(id) {
     const p = id ? project(id) : myProjects().filter(item=>item.uat?.stage==='customer').sort(ProjectPriority.compare)[0];
@@ -446,7 +493,7 @@
   };
   W.sendTeamMessage = function(id) {
     const e=employee(id),input=document.getElementById('ws-team-message');if(!input.reportValidity())return;
-    state().messages=state().messages||[];state().messages.unshift({id:'MSG-'+Date.now(),from:user().id,to:id,text:input.value,createdAt:new Date().toISOString()});notify(`Message from ${user().name}`,input.value,e?.role||'developer');app().closeModal();app().save();app().toast(`Message delivered to ${e?.name||'your teammate'}.`,'success');
+    state().messages=state().messages||[];state().messages.unshift({id:'MSG-'+Date.now(),from:user().id,to:id,text:input.value,createdAt:new Date().toISOString()});notify(`Message from ${user().name}`,input.value,e?.role||'developer',id);app().closeModal();app().save();app().toast(`Message delivered to ${e?.name||'your teammate'}.`,'success');
   };
   W.exportReport = function() {
     const quote=v=>'"'+String(v??'').replace(/"/g,'""')+'"';

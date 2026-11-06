@@ -1,0 +1,243 @@
+(() => {
+  'use strict';
+
+  const view = window.FourView = {};
+  const params = new URLSearchParams(location.search);
+  const embedded = params.get('multiView') === '1';
+  const roles = ['manager', 'developer', 'tester', 'customer'];
+  const labels = {manager:'Manager', developer:'Developer', tester:'Tester', customer:'Customer'};
+  let shell;
+  let toggle;
+  let projectId;
+  let focusedRole;
+  let previousAppState;
+  const people = {};
+  const manualPeople = new Set();
+
+  if (embedded) document.body.classList.add('four-view-child');
+
+  const app = () => window.A;
+  const state = () => app().state;
+  const escape = value => app().escape(value);
+  const icon = (name, size = 18) => app().icon(name, size);
+
+  function projects() {
+    return state().projects.slice().sort((a, b) => {
+      const first = a.number || Number(a.name.match(/\d+$/)?.[0]) || 0;
+      const second = b.number || Number(b.name.match(/\d+$/)?.[0]) || 0;
+      return first - second;
+    });
+  }
+
+  function selectedProject() {
+    return state().projects.find(project => project.id === projectId);
+  }
+
+  function rolePeople(role) {
+    return state().employees.filter(person => person.role === role);
+  }
+
+  function assignedPerson(role) {
+    const team = selectedProject()?.team || [];
+    return rolePeople(role).find(person => team.includes(person.id)) ||
+      rolePeople(role).find(person => person.available !== false) || rolePeople(role)[0];
+  }
+
+  function frameUrl(role) {
+    const url = new URL(location.pathname, location.href);
+    url.searchParams.set('multiView', '1');
+    url.searchParams.set('workspaceRole', role);
+    if (projectId) url.searchParams.set('project', projectId);
+    if (role !== 'customer' && people[role]) url.searchParams.set('employee', people[role]);
+    return url.href;
+  }
+
+  function loadFrame(role) {
+    const frame = shell.querySelector(`iframe[data-role="${role}"]`);
+    const url = frameUrl(role);
+    if (frame.getAttribute('src') !== url) frame.src = url;
+  }
+
+  function panelApp(role) {
+    const child = shell.querySelector(`iframe[data-role="${role}"]`).contentWindow;
+    return child?.A?.state.role === role && (role === 'customer' || child.A.state.user.id === people[role]) ? child.A : null;
+  }
+
+  function refreshPanel(role) {
+    const panel = shell.querySelector(`.four-panel[data-role="${role}"]`);
+    const person = role === 'customer' ? {name:'Jordan Lee', avatar:16} : rolePeople(role).find(person => person.id === people[role]);
+    const photo = panel.querySelector('.four-profile-photo');
+    const portrait = Number(person?.avatar);
+    photo.src = `avatars/${portrait >= 1 && portrait <= 16 ? portrait : 15}.jpg`;
+    photo.alt = person?.name || labels[role];
+    if (role === 'customer') return;
+    const unread = app().notificationsFor(role, people[role]).filter(notice => !notice.read).length;
+    const messages = panel.querySelector('[data-panel-action="messages"]');
+    messages.innerHTML = `${icon('bell', 17)}${unread ? `<span class="four-unread">${unread > 99 ? '99+' : unread}</span>` : ''}`;
+    messages.setAttribute('aria-label', `${labels[role]} messages${unread ? `, ${unread} unread` : ''}`);
+    const childApp = panelApp(role);
+    const theme = childApp ? panel.querySelector('iframe').contentDocument.documentElement.dataset.theme : document.documentElement.dataset.theme;
+    panel.querySelector('.four-panel-header').dataset.theme = theme || 'light';
+    const themeButton = panel.querySelector('[data-panel-action="theme"]');
+    themeButton.innerHTML = icon(theme === 'dark' ? 'sun' : 'moon', 16);
+    themeButton.setAttribute('aria-label', `${labels[role]}: switch to ${theme === 'dark' ? 'light' : 'dark'} theme`);
+    for (const button of panel.querySelectorAll('[data-panel-action]')) button.disabled = !childApp;
+  }
+
+  function refreshControls(resetPeople = false) {
+    const choices = projects();
+    if (!choices.some(project => project.id === projectId)) {
+      projectId = choices.find(project => UatWorkflow.stage(project) === 'testing')?.id || choices[0]?.id;
+    }
+    const select = shell.querySelector('#four-project');
+    select.innerHTML = choices.map(project => `<option value="${escape(project.id)}"${project.id === projectId ? ' selected' : ''}>${escape(project.name)}</option>`).join('');
+
+    for (const role of roles.filter(role => role !== 'customer')) {
+      const list = rolePeople(role);
+      const current = list.find(person => person.id === people[role]);
+      const assigned = assignedPerson(role);
+      if (resetPeople || !current || !manualPeople.has(role)) people[role] = assigned?.id;
+      const personSelect = shell.querySelector(`[data-person-role="${role}"]`);
+      personSelect.innerHTML = list.map(person => `<option value="${escape(person.id)}"${person.id === people[role] ? ' selected' : ''}>${escape(person.name)}</option>`).join('');
+      personSelect.disabled = !list.length;
+      loadFrame(role);
+      refreshPanel(role);
+    }
+    const ready = UatWorkflow.stage(selectedProject()) === 'customer';
+    const status = shell.querySelector('[data-customer-status]');
+    status.classList.toggle('is-ready', ready);
+    status.title = ready ? 'Beta ready' : 'Waiting for customer handoff';
+    status.setAttribute('aria-label', status.title);
+    refreshPanel('customer');
+    loadFrame('customer');
+  }
+
+  function focusPanel(role) {
+    focusedRole = focusedRole === role ? null : role;
+    shell.classList.toggle('four-view-focused', Boolean(focusedRole));
+    shell.querySelector(`.four-panel[data-role="${focusedRole || 'customer'}"] .four-panel-header`)
+      .appendChild(shell.querySelector('.four-workspace-controls'));
+    for (const panel of shell.querySelectorAll('.four-panel')) {
+      const focused = panel.dataset.role === focusedRole;
+      panel.classList.toggle('is-focused', focused);
+      const button = panel.querySelector('[data-focus-role]');
+      button.setAttribute('aria-pressed', String(focused));
+      button.setAttribute('aria-label', focused ? 'Return to four panels' : `Focus ${labels[panel.dataset.role]} panel`);
+      button.innerHTML = icon(focused ? 'grid' : 'maximize', 16);
+    }
+  }
+
+  function createShell() {
+    shell = document.createElement('section');
+    shell.className = 'four-view-shell';
+    shell.hidden = true;
+    shell.setAttribute('aria-label', 'Four-role workspace');
+    shell.innerHTML = `<div class="four-view-grid">${roles.map(role => `<section class="four-panel" data-role="${role}" aria-label="${labels[role]} panel">
+      <header class="four-panel-header">
+        <img class="four-profile-photo" alt="">
+        <h2 class="four-role four-role-${role}">${labels[role]}</h2>
+        ${role === 'customer' ? '<strong class="four-customer-name">Jordan Lee</strong><span class="four-customer-status" data-customer-status role="img"></span>' : `<label class="four-person-select"><span class="four-screen-reader">${labels[role]} account</span><select data-person-role="${role}" aria-label="${labels[role]} account"></select></label>
+          <button type="button" data-panel-action="theme" data-panel-role="${role}" title="Change this panel’s theme">${icon('moon', 16)}</button>
+          <button type="button" data-panel-action="messages" data-panel-role="${role}" title="Messages and notifications">${icon('bell', 17)}</button>
+          <button type="button" data-panel-action="settings" data-panel-role="${role}" aria-label="${labels[role]} settings" title="Workspace settings">${icon('settings', 16)}</button>`}
+        <button type="button" class="four-focus" data-focus-role="${role}" aria-label="Focus ${labels[role]} panel" aria-pressed="false" title="Focus this panel">${icon('maximize', 16)}</button>
+        ${role === 'customer' ? `<div class="four-workspace-controls"><label class="four-view-project"><span class="four-screen-reader">Shared project</span><select id="four-project" aria-label="Project for all four panels" title="Project for all four panels"></select></label><button type="button" class="four-view-close" aria-label="Close four-panel mode" title="Return to normal view">${icon('x', 16)}<span>Normal view</span></button></div>` : ''}
+      </header>
+      <iframe data-role="${role}" title="${labels[role]} workspace" allow="clipboard-write"></iframe>
+    </section>`).join('')}</div>`;
+    document.body.appendChild(shell);
+    shell.querySelector('.four-view-close').onclick = view.close;
+    shell.querySelector('#four-project').onchange = event => {
+      projectId = event.target.value;
+      manualPeople.clear();
+      refreshControls(true);
+    };
+    for (const select of shell.querySelectorAll('[data-person-role]')) {
+      select.onchange = event => {
+        const role = event.target.dataset.personRole;
+        people[role] = event.target.value;
+        manualPeople.add(role);
+        loadFrame(role);
+        refreshPanel(role);
+      };
+    }
+    for (const frame of shell.querySelectorAll('iframe')) {
+      frame.addEventListener('load', () => refreshPanel(frame.dataset.role));
+    }
+    for (const button of shell.querySelectorAll('[data-panel-action]')) {
+      button.onclick = () => {
+        const role = button.dataset.panelRole;
+        const childApp = panelApp(role);
+        if (!childApp) return;
+        if (button.dataset.panelAction === 'theme') {
+          const frame = shell.querySelector(`iframe[data-role="${role}"]`);
+          childApp.setTheme(frame.contentDocument.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+          childApp.render();
+        } else {
+          childApp.closeModal();
+          childApp.navigate(button.dataset.panelAction);
+        }
+        refreshPanel(role);
+      };
+    }
+    for (const button of shell.querySelectorAll('[data-focus-role]')) {
+      button.onclick = () => focusPanel(button.dataset.focusRole);
+    }
+  }
+
+  view.open = function () {
+    if (embedded || !app()) return;
+    if (shell && !shell.hidden) return;
+    if (!shell) createShell();
+    const normalApp = document.getElementById('app');
+    previousAppState = {inert:normalApp.inert, ariaHidden:normalApp.getAttribute('aria-hidden')};
+    normalApp.inert = true;
+    normalApp.setAttribute('aria-hidden', 'true');
+    document.body.classList.add('four-view-active');
+    shell.hidden = false;
+    toggle.setAttribute('aria-pressed', 'true');
+    toggle.innerHTML = `${icon('x', 20)}<span>Close four panels</span>`;
+    refreshControls();
+    shell.querySelector('#four-project').focus();
+  };
+
+  view.close = function () {
+    if (!shell || shell.hidden) return;
+    shell.hidden = true;
+    document.body.classList.remove('four-view-active');
+    const normalApp = document.getElementById('app');
+    normalApp.inert = previousAppState?.inert || false;
+    if (previousAppState?.ariaHidden === null) normalApp.removeAttribute('aria-hidden');
+    else if (previousAppState?.ariaHidden) normalApp.setAttribute('aria-hidden', previousAppState.ariaHidden);
+    toggle.setAttribute('aria-pressed', 'false');
+    toggle.innerHTML = `${icon('grid', 20)}<span>Open four panels</span>`;
+    toggle.focus();
+  };
+
+  view.onWorkspaceSync = function () {
+    if (shell) refreshControls();
+  };
+
+  view.refreshPanel = function (role) {
+    if (shell && roles.includes(role)) refreshPanel(role);
+  };
+
+  view.mount = function () {
+    if (embedded || toggle || !app()) return;
+    toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.id = 'four-view-toggle';
+    toggle.className = 'four-view-toggle';
+    toggle.setAttribute('aria-pressed', 'false');
+    toggle.setAttribute('aria-label', 'Toggle four-panel workspace');
+    toggle.innerHTML = `${icon('grid', 20)}<span>Open four panels</span>`;
+    toggle.onclick = () => shell && !shell.hidden ? view.close() : view.open();
+    document.body.appendChild(toggle);
+    window.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && shell && !shell.hidden) {
+        if (focusedRole) focusPanel(focusedRole);
+        else view.close();
+      }
+    });
+  };
+})();

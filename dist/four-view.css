@@ -1,0 +1,330 @@
+.four-view-toggle {
+  position: fixed;
+  right: 22px;
+  bottom: 20px;
+  z-index: 10020;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 12px 17px;
+  border: 1px solid #ffffff40;
+  border-radius: 14px;
+  background: #2256dc;
+  color: #fff;
+  box-shadow: 0 8px 28px #15347635;
+  font: 700 14px 'DM Sans', sans-serif;
+  cursor: pointer;
+}
+
+.four-view-toggle:hover { background: #1848c5; }
+
+.four-view-toggle:focus-visible,
+.four-view-shell button:focus-visible,
+.four-view-shell select:focus-visible {
+  outline: 3px solid #80adff;
+  outline-offset: 1px;
+}
+
+.four-view-active { overflow: hidden; }
+.four-view-active > #app,
+.four-view-active > .four-view-toggle { display: none; }
+.four-view-active > #modal-root,
+.four-view-active > #toast-root { visibility: hidden; pointer-events: none; }
+
+.four-view-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: var(--line, #dbe4f2);
+  color: var(--text, #17253e);
+  font-family: 'DM Sans', sans-serif;
+}
+
+.four-view-shell[hidden] { display: none; }
+
+.four-view-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 2px;
+  width: 100%;
+  height: 100%;
+}
+
+.four-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--surface, #fff);
+}
+
+.four-panel-header {
+  display: flex;
+  align-items: center;
+  flex: 0 0 50px;
+  gap: 9px;
+  height: 50px;
+  min-width: 0;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line, #dbe4f2);
+  background: var(--surface, #fff);
+  color: var(--text, #17253e);
+  white-space: nowrap;
+}
+
+.four-panel-header[data-theme=light] {
+  --surface: #fff;
+  --text: #17253e;
+  --muted: #7c879c;
+  --line: #e9edf4;
+  --blue: #2059e8;
+  --blue-soft: #edf3ff;
+}
+
+.four-profile-photo {
+  display: block;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--blue-soft);
+}
+
+.four-panel-header .four-role {
+  margin: 0;
+  padding: 4px 7px;
+  flex: none;
+  border-radius: 5px;
+  background: var(--blue-soft);
+  color: var(--blue);
+  font: 700 13px/1.3 'DM Sans', sans-serif;
+  letter-spacing: 0;
+}
+
+.four-panel-header .four-role-developer { background: #8b65dd15; color: #8155cc; }
+.four-panel-header .four-role-tester { background: #168d8615; color: #168d86; }
+.four-panel-header .four-role-customer { background: #b0762015; color: #a56a15; }
+
+.four-person-select { flex: 1; min-width: 0; }
+.four-person-select select {
+  width: 100%;
+  max-width: 240px;
+  min-width: 0;
+  height: 34px;
+  padding: 3px 2px;
+  border: 0;
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--text);
+  font: 700 17px 'DM Sans', sans-serif;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.four-panel-header button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted, #72829d);
+  cursor: pointer;
+}
+
+.four-panel-header button:hover {
+  background: var(--blue-soft, #e8efff);
+  color: var(--blue, #2463eb);
+}
+
+.four-panel-header .four-focus { order: 2; }
+.four-unread {
+  position: absolute;
+  top: -1px;
+  right: -2px;
+  display: grid;
+  place-items: center;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 9px;
+  background: var(--blue);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.four-customer-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 17px;
+  text-overflow: ellipsis;
+}
+
+.four-customer-status {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: #b07620;
+}
+.four-customer-status.is-ready { background: #169775; }
+
+.four-workspace-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  padding-left: 9px;
+  border-left: 1px solid var(--line);
+}
+
+.four-view-project select {
+  width: 106px;
+  height: 32px;
+  padding: 3px 7px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.four-panel-header .four-view-close {
+  gap: 4px;
+  width: auto;
+  padding: 0 7px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.four-panel iframe {
+  display: block;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  border: 0;
+  background: var(--surface, #fff);
+}
+
+.four-view-focused .four-view-grid {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+.four-view-focused .four-panel:not(.is-focused) { display: none; }
+
+.four-screen-reader {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The parent owns the single identity/action row in four-panel mode. */
+body.four-view-child .desktop {
+  display: block;
+  width: 100%;
+  height: 100dvh;
+  min-height: 0;
+  padding: 0;
+}
+body.four-view-child .app-window,
+body.four-view-child .login-window {
+  width: 100%;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  animation: none;
+}
+body.four-view-child .titlebar,
+body.four-view-child .topbar,
+body.four-view-child .customer-topbar,
+body.four-view-child .customer-hero,
+body.four-view-child .planner-profile { display: none; }
+
+body.four-view-child .app-layout {
+  position: relative;
+  min-height: 0;
+  padding-bottom: 40px;
+}
+body.four-view-child .app-layout > .sidebar {
+  position: absolute;
+  inset: auto 0 0;
+  z-index: 5;
+  display: block;
+  width: 100%;
+  height: 40px;
+  padding: 3px 6px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+  overflow: hidden;
+  transform: none;
+}
+body.four-view-child .sidebar > :not(nav) { display: none; }
+body.four-view-child .sidebar nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+  overflow: auto;
+}
+body.four-view-child .sidebar .nav-item {
+  flex: 1 0 auto;
+  min-height: 32px;
+  width: auto;
+  margin: 0;
+  padding: 6px 9px;
+  border-radius: 5px;
+  font-size: 12px;
+}
+body.four-view-child .main-shell { min-width: 0; width: 100%; }
+body.four-view-child .uat-workspace-layout { display: block; overflow: auto; }
+body.four-view-child .uat-workspace-layout > .main-content { overflow: visible; padding: 16px; }
+body.four-view-child .uat-right-rail { display: none; }
+body.four-view-child .customer-page { padding: 10px; }
+body.four-view-child .planner-desktop { padding: 7px 7px 0; }
+body.four-view-child .planner-workspace { height: clamp(250px, calc(100dvh - 128px), 650px); }
+body.four-view-child .planner-window.is-maximized { inset: 8px; }
+body.four-view-child .modal-overlay { padding: 8px; }
+body.four-view-child .modal-content { max-height: 96dvh; }
+
+@media (max-width: 1400px) {
+  .four-panel-header { gap: 6px; padding-inline: 8px; }
+  .four-panel-header .four-view-close { width: 32px; padding: 0; }
+  .four-view-close > span { display: none; }
+  .four-workspace-controls { gap: 4px; padding-left: 6px; }
+}
+
+@media (max-width: 1000px) {
+  .four-panel-header { gap: 4px; padding-inline: 6px; }
+  .four-panel-header .four-role { padding-inline: 4px; font-size: 11px; }
+  .four-person-select select, .four-customer-name { font-size: 14px; }
+  .four-view-project select { width: 94px; }
+  .four-panel-header button { width: 28px; }
+}
+
+@media (max-width: 580px) {
+  .four-view-grid { display: flex; flex-direction: column; overflow: auto; }
+  .four-panel { min-height: 520px; flex: none; }
+  .four-view-focused .four-panel.is-focused { flex: 1; min-height: 0; }
+  .four-view-toggle { right: 12px; bottom: 12px; }
+}

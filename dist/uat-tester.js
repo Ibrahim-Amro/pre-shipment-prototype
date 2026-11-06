@@ -101,6 +101,17 @@
       }
     }
 
+    tester.onWorkspaceSync=()=>{
+      if(!detail.isConnected)return false;
+      if(detail.querySelector('.uat-failure-form'))return true;
+      const detailScroll=detail.scrollTop;
+      const side=document.querySelector('.uat-tester-side');
+      const sideScroll=side?.scrollTop||0;
+      render();
+      detail.scrollTop=detailScroll;
+      if(side)side.scrollTop=sideScroll;
+      return true;
+    };
     render();
   };
 

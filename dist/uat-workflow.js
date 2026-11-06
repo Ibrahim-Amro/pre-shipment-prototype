@@ -10,14 +10,19 @@
   const caseById = (project, id) => project?.uat?.cases?.find(test => test.id === id);
   const linkedBug = test => workspace().issues.find(issue => issue.id === test.bugId);
   const clean = value => String(value ?? '').trim();
-  const projectManager = project => project.team.find(id =>
-    workspace().employees.some(person => person.id === id && person.role === 'manager'));
+  const employeeForRole = (id, role) => workspace().employees.find(person => person.id === id && person.role === role);
+  const projectManager = project => (project?.team || []).find(id => employeeForRole(id, 'manager')) ||
+    workspace().employees.find(person => person.role === 'manager' && person.available !== false)?.id ||
+    workspace().employees.find(person => person.role === 'manager')?.id;
 
   function notify(title, body, employeeId, role, page) {
+    const recipient = employeeForRole(employeeId, role);
+    if (!recipient) return false;
     workspace().notifications.unshift({
-      id: 'uat-notice-' + newId(), title, body, employeeId, role, page,
+      id: 'uat-notice-' + newId(), title, body, employeeId:recipient.id, role:recipient.role, page,
       time: 'Just now', read: false, type: 'message-square'
     });
+    return true;
   }
 
   function newId() {
@@ -149,14 +154,18 @@
   workflow.canSend = project => {
     if (!project || workflow.stage(project) !== 'testing') return false;
     const cases = project.uat?.cases;
-    return cases?.length ? cases.every(test => test.status === 'pass' &&
-      (!test.bugId || workspace().issues.find(issue => issue.id === test.bugId)?.status === 'Resolved')) :
-      !project.uat?.requirements && project.status === 'Completed';
+    return Boolean(cases?.length && cases.every(test => test.status === 'pass' &&
+      (!test.bugId || workspace().issues.find(issue => issue.id === test.bugId)?.status === 'Resolved')) &&
+      !workspace().issues.some(issue => issue.projectId === project.id && issue.status !== 'Resolved'));
   };
 
   workflow.sendToCustomer = function (projectId) {
     const project = projectById(projectId);
-    if (workspace().role !== 'manager' || !workflow.canSend(project)) return false;
+    if (workspace().role !== 'manager') return false;
+    if (!workflow.canSend(project)) {
+      A.toast('Pass every approved test and resolve all project findings before customer acceptance.','error');
+      return false;
+    }
     project.uat ||= {cases: []};
     project.uat.stage = 'customer';
     project.uat.customerSentAt = new Date().toISOString();
@@ -236,9 +245,10 @@
         test.bugId = issue.id;
         project.bugs = (Number(project.bugs) || 0) + 1;
       }
+      const developer = employeeForRole(issue.assignee, 'developer');
       notify(issue.status === 'Reopened' ? 'UAT bug reopened' : 'UAT bug reported',
-        `${project.name} · ${issue.title}`, issue.assignee || projectManager(project),
-        issue.assignee ? 'developer' : 'manager', 'issues');
+        `${project.name} · ${issue.title}`, developer?.id || projectManager(project),
+        developer ? 'developer' : 'manager', 'issues');
     } else if (status === 'pass' && issue?.status === 'Awaiting retest') {
       issue.status = 'In review';
       issue.verifiedAt = now;
@@ -290,6 +300,7 @@
     delete issue.verifiedAt;
     test.status = 'retest';
     test.buildVersion = fix.buildVersion;
+    project.version = fix.buildVersion;
     project.uat.stage = 'testing';
     if (project.status === 'Completed' || Number(project.progress) >= 100) {
       project.status = 'In progress';
@@ -308,16 +319,21 @@
     if (workspace().role !== 'developer' || !issue || !project || issue.assignee !== workspace().user.id ||
         !Workspaces.hasAcceptedProject(project.id) || !['Open','In progress','Reopened'].includes(issue.status) ||
         (issue.uatCaseId && (!existing || existing.bugId !== issueId || existing.status !== 'fail')) ||
-        !buildVersion || buildVersion.toLowerCase() === clean(existing?.buildVersion || project.version).toLowerCase()) return false;
+        !clean(fix?.notes) || !buildVersion || buildVersion.toLowerCase() === clean(existing?.buildVersion || project.version).toLowerCase()) return false;
     const test = retestCase(project, issue, fix);
-    if (!test) return false;
+    if (!test || !employeeForRole(test.assigneeId, 'tester')) return false;
     queueRetest(project, issue, test, {...fix, buildVersion, author:workspace().user.name, authorId:workspace().user.id});
     return true;
   };
 
-  workflow.canReview = issue => workspace().role === 'manager' && issue?.status === 'In review' &&
-    Boolean(issue.verifiedBy && issue.verifiedAt && issue.fix?.buildVersion) &&
-    caseById(projectById(issue.projectId), issue.uatCaseId)?.status === 'pass';
+  workflow.canReview = issue => {
+    const project = projectById(issue?.projectId);
+    const test = caseById(project, issue?.uatCaseId);
+    return workspace().role === 'manager' && workflow.stage(project) === 'testing' && issue?.status === 'In review' &&
+      Boolean(issue.verifiedAt && issue.fix?.buildVersion && employeeForRole(issue.verifiedBy, 'tester')) &&
+      test?.status === 'pass' && test.bugId === issue.id && test.assigneeId === issue.verifiedBy &&
+      test.buildVersion === issue.fix.buildVersion;
+  };
 
   workflow.approveFix = function (issueId) {
     const issue = workspace().issues.find(item => item.id === issueId);

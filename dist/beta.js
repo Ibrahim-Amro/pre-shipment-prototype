@@ -1,14 +1,17 @@
 'use strict';
 
-window.initBeta = function ({A, app, state, icon, esc, brand, titlebar, closeBtn, capitalize, renderLogin, showSplash, readWorkspace, workspaceStorageKey}) {
+window.initBeta = function ({A, app, state, icon, esc, brand, titlebar, closeBtn, capitalize, renderLogin, showSplash, readWorkspace}) {
   const betaParams = new URLSearchParams(location.search);
-  const betaSessionKey = 'pre-shipment-beta-session';
+  const embeddedCustomer=betaParams.get('multiView')==='1'&&betaParams.get('workspaceRole')==='customer';
+  const embeddedProjectId=embeddedCustomer?betaParams.get('project'):null;
+  const betaSessionKey=embeddedCustomer?'pre-shipment-beta-panel-'+embeddedProjectId:'pre-shipment-beta-session';
   const setupSteps = [
     [0, 'Downloading beta package'],
     [36, 'Setting up requirements'],
     [72, 'Starting the beta application']
   ];
   let betaSession;
+  let setupGeneration=0;
 
   function betaKey(project) {
     return project.betaKey || 'BETA-' + project.id.toUpperCase();
@@ -23,7 +26,9 @@ window.initBeta = function ({A, app, state, icon, esc, brand, titlebar, closeBtn
 
   function projectManager(project, workspace) {
     return project.team.map(id => workspace.employees.find(employee => employee.id === id))
-      .find(employee => employee?.role === 'manager');
+      .find(employee => employee?.role === 'manager') ||
+      workspace.employees.find(employee=>employee.role==='manager'&&employee.available!==false) ||
+      workspace.employees.find(employee=>employee.role==='manager');
   }
 
   function saveBetaSession() {
@@ -31,6 +36,45 @@ window.initBeta = function ({A, app, state, icon, esc, brand, titlebar, closeBtn
   }
 
   const Beta = window.Beta = {
+    startEmbedded(projectId) {
+      const project=state.projects.find(item=>item.id===projectId);
+      if(!project||UatWorkflow.stage(project)!=='customer'){
+        setupGeneration++;
+        renderEmbeddedWaiting(project);
+        return;
+      }
+      if(!betaSession){
+        try{betaSession=JSON.parse(sessionStorage.getItem(betaSessionKey));}catch{}
+        if(!betaSession||betaSession.projectId!==projectId){
+          betaSession={id:'beta-'+Array.from(crypto.getRandomValues(new Uint32Array(3)),value=>value.toString(36)).join('-'),projectId,stage:'setup',planner:null,notes:[],draft:{type:'Suggestion',title:'',body:''}};
+          saveBetaSession();
+        }
+      }
+      if(betaSession.stage==='finished')renderBetaConfirmation();
+      else if(betaSession.stage==='active')renderBetaApp();
+      else renderBetaSetup(project);
+    },
+
+    onWorkspaceSync() {
+      if(!embeddedCustomer)return;
+      const project=state.projects.find(item=>item.id===embeddedProjectId);
+      if(UatWorkflow.stage(project)!=='customer'){
+        if(!document.getElementById('beta-embedded-waiting')){
+          setupGeneration++;
+          renderEmbeddedWaiting(project);
+        }
+      }else if(document.getElementById('beta-embedded-waiting')){
+        Beta.startEmbedded(embeddedProjectId);
+      }
+    },
+
+    restartEmbedded() {
+      if(!embeddedCustomer)return;
+      sessionStorage.removeItem(betaSessionKey);
+      betaSession=null;
+      Beta.startEmbedded(embeddedProjectId);
+    },
+
     entryChoices() {
       return `<div class="eyebrow">PRE-SHIPMENT BY PFIZER</div>
         <h2>Welcome to Pre-Shipment.</h2><p>Choose how you’d like to continue.</p>
@@ -312,8 +356,13 @@ ${projectManager(project, state)?.name || 'Project manager'} · Pre-Shipment`
         status.textContent = 'Add at least one note before sending feedback.';
         return;
       }
-      const workspace = readWorkspace() || state;
+      A.refreshWorkspace();
+      const workspace = state;
       const project = workspace.projects.find(item => item.id === betaSession.projectId);
+      if (!project || UatWorkflow.stage(project) !== 'customer') {
+        status.textContent = 'Customer acceptance is paused while this project returns to UAT. Your notes are saved in this session. Try again after the manager reopens customer acceptance.';
+        return;
+      }
       const manager = project && projectManager(project, workspace);
       if (!manager) {
         status.textContent = 'The project manager is unavailable. Your notes are still saved in this session.';
@@ -340,12 +389,12 @@ ${projectManager(project, state)?.name || 'Project manager'} · Pre-Shipment`
           time: 'Just now',
           read: false
         });
-        try {
-          localStorage.setItem(workspaceStorageKey, JSON.stringify(workspace));
-        } catch {
-          status.textContent = 'Your feedback could not be saved. Your notes are still in this session. Try again.';
-          return;
-        }
+      }
+      try {
+        A.save();
+      } catch {
+        status.textContent = 'Your feedback could not be saved. Your notes are still in this session. Try again.';
+        return;
       }
       betaSession.stage = 'finished';
       betaSession.sentCount = notes.length;
@@ -363,6 +412,7 @@ ${projectManager(project, state)?.name || 'Project manager'} · Pre-Shipment`
   }
 
   function renderBetaSetup(project) {
+    const generation=++setupGeneration;
     document.title = 'Running Your Beta Environment · Pre-Shipment';
     app.innerHTML = `<section class="app-window">${titlebar(true)}<main class="beta-setup">
       <div class="card beta-setup-card"><span class="beta-setup-icon">${icon('download',28)}</span>
@@ -379,6 +429,7 @@ ${projectManager(project, state)?.name || 'Project manager'} · Pre-Shipment`
     const steps = document.querySelectorAll('.beta-setup-steps li');
     const start = performance.now();
     function tick() {
+      if(generation!==setupGeneration||!status.isConnected)return;
       const value = Math.min(100, Math.floor((performance.now() - start) / 48));
       const current = setupSteps.findLastIndex(([threshold]) => value >= threshold);
       const label = value === 100 ? 'Setup complete' : setupSteps[current][1];
@@ -395,6 +446,7 @@ ${projectManager(project, state)?.name || 'Project manager'} · Pre-Shipment`
         return;
       }
       setTimeout(() => {
+        if(generation!==setupGeneration||!status.isConnected)return;
         betaSession.stage = 'active';
         saveBetaSession();
         renderBetaApp();
@@ -531,11 +583,22 @@ ${projectManager(project, state)?.name || 'Project manager'} · Pre-Shipment`
       <div class="card beta-setup-card"><span class="beta-setup-icon">${icon('check',30)}</span>
         <div class="eyebrow">SESSION COMPLETE</div><h1>Thanks for testing the beta.</h1>
         <p>${count === 1 ? 'Your note was' : 'All ' + count + ' notes were'} sent to the project manager.</p>
-        <button class="btn primary" onclick="window.close()">Close beta window</button>
+        ${embeddedCustomer?'<button class="btn primary" onclick="Beta.restartEmbedded()">Start another beta session</button>':'<button class="btn primary" onclick="window.close()">Close beta window</button>'}
+      </div></main></section>`;
+  }
+
+  function renderEmbeddedWaiting(project) {
+    const stage=UatWorkflow.stage(project);
+    app.innerHTML=`<section class="app-window"><main id="beta-embedded-waiting" class="beta-setup">
+      <div class="card beta-setup-card"><span class="beta-setup-icon">${icon('clock',28)}</span>
+        <div class="eyebrow">CUSTOMER ACCEPTANCE</div><h1>${esc(project?.name||'Select a project')}</h1>
+        <p>The customer beta will open here after the manager sends this project to Customer Acceptance Stage.</p>
+        <div class="info-box">${icon('shield-check',18)}<span>${stage==='awaiting'?'Waiting for UAT to start.':'Internal UAT and manager approval are in progress.'}</span></div>
       </div></main></section>`;
   }
 
   function startBeta() {
+    if(betaParams.get('multiView')==='1'&&['manager','developer','tester','customer'].includes(betaParams.get('workspaceRole')))return;
     const requestedSession = betaParams.get('betaSession');
     if (requestedSession) {
       const saved = JSON.parse(sessionStorage.getItem(betaSessionKey));

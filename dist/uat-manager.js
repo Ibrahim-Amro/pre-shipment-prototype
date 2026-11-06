@@ -175,9 +175,13 @@
       const cases = casesOf(project);
       const approved = cases.filter(testCase => testCase.status !== 'draft');
       const passed = approved.filter(testCase => testCase.status === 'pass').length;
-      const reviews = workspace().issues.filter(issue => issue.projectId === project.id && UatWorkflow.canReview(issue)).length;
+      const findings = workspace().issues.filter(issue => issue.projectId === project.id && issue.status !== 'Resolved');
+      const reviews = findings.filter(UatWorkflow.canReview).length;
       const progress = approved.length ? `${passed} of ${approved.length} approved cases passed` : 'UAT preparation is needed';
-      const detail = reviews ? `${progress} · ${reviews} verified ${reviews === 1 ? 'fix awaits' : 'fixes await'} manager approval` : progress;
+      const detail = [progress,
+        findings.length ? `${findings.length} unresolved ${findings.length === 1 ? 'finding' : 'findings'}` : '',
+        reviews ? `${reviews} verified ${reviews === 1 ? 'fix awaits' : 'fixes await'} manager approval` : ''
+      ].filter(Boolean).join(' · ');
       const review = reviews ? button('Review verified fixes', "Workspaces.go('issues');Workspaces.filter('issueFilter','review')", 'primary') : '';
       return projectCard(project, detail, review + button('Review scenarios',`UatManager.openProject(${arg(project.id)})`));
     };
@@ -451,7 +455,8 @@
       const invalid = checks.map(field).find(input => !input.value.trim() || input.name.startsWith('assignee') && !testers.has(input.value));
       if (invalid) {
         invalid.closest('details').open = true;
-        invalid.focus();
+        invalid.focus({preventScroll:true});
+        invalid.scrollIntoView({block:'center',behavior:'instant'});
         app().toast('Complete each scenario and assign it to a tester selected for this project.','error');
         return;
       }

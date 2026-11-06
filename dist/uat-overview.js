@@ -123,7 +123,7 @@
   }
 
   function digestSummary(data) {
-    const top = data.active[0];
+    const top = data.active.slice().sort(ProjectPriority.compareUrgency)[0];
     if (!top) return '<p>There are no active projects to summarize.</p>';
     const priority = ProjectPriority.of(top);
     const blockers = data.open.filter(issue => issue.projectId === top.id).sort((a,b) =>
