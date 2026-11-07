@@ -78,6 +78,7 @@ window.UAT_DEMO_PLANS = {
 };
 
 window.prepareDemoWorkspace = function (state) {
+ if(state.cleanWorkspace)return false;
  const previous=JSON.stringify(state);
  const added = !state.projects.some(project=>project.id==='p10');
  if(added)state.projects.push(structuredClone(window.DEMO_DATA.projects.find(project=>project.id==='p10')));
@@ -115,4 +116,21 @@ window.prepareDemoWorkspace = function (state) {
  }
  rename(state);
  return previous!==JSON.stringify(state);
+};
+
+// Operational role accounts remain available in an otherwise empty workspace.
+window.emptyWorkspace = () => ({
+ cleanWorkspace:true, dataRevision:'empty-1',
+ employees:[
+  {id:'m1',name:'Manager',role:'manager',title:'Project manager',email:'manager@local.demo',avatar:1,available:true,load:0,skills:[]},
+  {id:'d1',name:'Developer',role:'developer',title:'Developer',email:'developer@local.demo',avatar:6,available:true,load:0,skills:[]},
+  {id:'t1',name:'Tester 1',role:'tester',title:'QA engineer',email:'tester@local.demo',avatar:9,available:true,load:0,skills:[]},
+  {id:'t2',name:'Tester 2',role:'tester',title:'QA engineer',email:'tester2@local.demo',avatar:12,available:true,load:0,skills:[]}
+ ],projects:[],issues:[],feedback:[],betaFeedback:[],notifications:[],assignments:[],accepted:{},messages:[],requests:[]
+});
+
+window.ensureSecondTester = state => {
+ if (!state.cleanWorkspace || state.employees.some(person => person.role === 'tester' && person.id !== 't1')) return false;
+ state.employees.push(structuredClone(window.emptyWorkspace().employees.find(person => person.id === 't2')));
+ return true;
 };

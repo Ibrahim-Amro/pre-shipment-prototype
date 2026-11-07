@@ -1,3 +1,5 @@
+> The app now starts with an empty workspace and four operational accounts (manager, developer, and two testers). Reloading once clears the previous saved demo data. New records persist normally afterward. Sample fixtures are loaded only by the automated GUI tests.
+
 # Pre-Shipment · By Pfizer
 
 A polished, interactive desktop-style web prototype. Everything runs in the browser with realistic sample data. AI analysis, tests, emails, credentials, and approvals are simulations. No backend, API keys, email service, ZIP extraction, or real authentication are used.
@@ -26,7 +28,7 @@ Choose **Open Your Beta Version** and select the customer-stage project. Its acc
 
 Use **Open four panels** at the bottom right to work with the manager, developer, tester, and customer on the same project at once. Each window fills a quarter of the screen with one compact row for its portrait, role, account, and actions. Select the shared project beside the customer’s name; these controls follow whichever panel you expand. **Normal view** returns to the regular layout and preserves the live panels. Theme, notifications, and settings remain available in each staff header.
 
-The customer panel waits for the manager’s customer-acceptance handoff, then opens the beta automatically. Staff still accept project invitations. Notifications go to the assigned developer, the case’s tester, or the project manager. Open tester cases update when a new build arrives.
+The customer panel shows the beta entry form used at login. After the manager’s customer-acceptance handoff, its key is prefilled; choose Open to run setup and use the beta inside the panel. Staff still accept project invitations. Notifications go to the assigned developer, the case’s tester, or the project manager. Open tester cases update when a new build arrives.
 
 A project’s urgency comes from unfinished work. **Finished UAT testing** requires every approved case to pass and every project finding to be resolved after tester verification and manager approval. This includes exploratory findings outside the original checklist. The badge then becomes **UAT complete**, and the manager can send the customer invitation.
 
@@ -36,15 +38,15 @@ Staff handoffs, evidence, and customer feedback use the same browser profile and
 
 ## Suggested demonstration
 
-1. Sign in as the manager with **admin** / **admin**.
-2. Open **Awaiting UAT**, select **Project 2**, and generate its UAT scenarios.
-3. Select developers and testers, review case assignments, and approve the project’s UAT start.
-4. Switch to a selected tester and accept the invitation using the prefilled key.
-5. Open the active project to see its team and test-case queue. Report a failure with evidence.
-6. Switch to the assigned developer, submit a new build, then have the tester retest it.
-7. Have the manager approve the verified fix and later send the finished checklist to customer acceptance.
-8. For an immediate customer demo, open beta access for **Project 7** or **Project 8**. Confirm its prefilled key and try the task planner.
-9. Submit session notes and review them in the assigned manager’s **Feedback** page.
+1. Sign in as the manager with **admin / admin**.
+2. Select **New project** to register **Project 1** in Awaiting UAT.
+3. Generate scenarios, review them, and select the Developer and Tester accounts.
+4. Approve testing, then switch roles and accept the generated assignments.
+5. Execute the cases, report findings, submit fixes, retest, and approve verified fixes.
+6. Send the finished UAT project to Customer Acceptance and open its generated invitation.
+7. Create tasks in the empty beta planner, collect notes, and send feedback to the manager.
+
+Settings → **Reset workspace** clears project activity without restoring sample records.
 
 **New project** registers another finished build in Awaiting UAT with the next project number.
 
@@ -89,3 +91,43 @@ Compact four-panel layouts were checked at 1280×800, 1600×1050, and 2560×1240
 Four-panel Chrome checks covered independent manager/developer/tester/customer identities, live updates inside an open retest window, exact notification destinations, customer stage handoff, isolated beta sessions, account switching, and returning to normal view. Numeric grouping and urgency updates were checked against resolved findings and completed UAT.
 
 Chrome checks covered all ten numbered projects, the simplified navigation, large project labels, Awaiting UAT preparation, selected developers and testers, project acceptance and team rosters, and scenario assignment. Customer checks covered prefilled beta keys, Windows-style planner interactions, task persistence, and feedback delivery. Direct HTML entry, the visible taskbar, and project identification while scrolling were checked visually. Saved-state checks covered renaming, stable assignment keys and project IDs, preserved results, and the tester-to-manager approval lifecycle.
+
+### Tester workspace and duplicate analysis
+
+The tester checklist is the primary right panel. The square people button opens the project roster on demand. Two tester accounts are available; select both during preparation and assign scenarios individually. Existing clean workspaces gain Tester 2 without losing their projects or results.
+
+Test failures and exploratory reports are compared against reports in the same project using mock AI text similarity. Potential duplicates keep their own IDs, evidence, results, and approvals, and link to the original finding. The developer receives a duplicate notification and an analysis panel with the similarity score and original report. Matches are suggestions for review, not automatic merges.
+
+The added `test-duplicates.cjs` covers the team toggle, checklist prominence, two tester availability, duplicate reporting and developer delivery. Matching across reporter identities and exclusion of other projects are checked with controlled records. It is included as the ninth suite; the previously recorded eight-suite run remains historical.
+
+### Annotation refinements
+
+Ready projects, UAT Testing Stage, and Customer Acceptance Stage are ordered from left to right. The missing-requirements panel has been removed. Body copy and controls share a readable 14px baseline across roles, with larger headings. Test input examples use labeled lists. The team menu opens above the modal content and stays within the frame viewport.
+
+### Progress, early beta, and customer follow-up
+
+Developer progress is the share of that developer’s reported bugs submitted for retest, awaiting manager approval, or resolved. A reopened/revision-requested bug becomes pending developer work again. Testing progress is passed approved scenarios divided by all approved scenarios. These replace the old illustrative increments.
+
+Active issues exclude resolved bugs; history lives in the Resolved tab and the project’s Show resolved bugs disclosure. The selected tester case has a green quick-pass square, using the same verified retest workflow as the main Pass button.
+
+Managers can explicitly Share early beta after acknowledging unfinished UAT. This keeps internal testing active, records the acknowledgement, and marks the invitation/customer environment as unfinished. Standard customer acceptance still requires all scenarios and findings to be complete.
+
+Customer project cards show acceptance, action status, treatment status and a report excerpt. Review feedback to record Passed/Failed and Ignored/Under treatment by Devs, or send selected notes to assigned project developers. Forwarded notes create linked, nonduplicated findings; ignoring feedback does not cancel unresolved developer work.
+
+The email composer now fills the panel, provides an example recipient, and has Back and Send email controls. Delivery remains simulated. Planner task dialogs stay within the simulated application. The GUI runner includes 14 suites covering these workflows.
+
+### Refresh and reset
+
+Refreshing a staff page returns to the signed-in role’s home dashboard, without reopening a project, dialog or previous tab. Refreshing the four-panel workspace restores all four roles at home. A customer refresh returns to beta entry; choosing Open with the correct key resumes its saved tasks and notes.
+
+The small Reset mock data icon sits beside the theme control in normal and four-panel staff headers. Confirm Reset workspace to clear projects, tests, bugs, invitations, messages, feedback, beta sessions and evidence across open app windows. The four operational accounts and theme remain. A reset revision prevents old tabs or unsaved forms from restoring deleted data. Reset does not run until confirmed.
+
+The GUI runner now includes 16 suites. Focused refresh/reset, beta refresh, manager preparation, the complete UAT lifecycle, and compact layout checks passed after this change; the earlier full 14-suite result is historical.
+
+### Optional demo data
+
+Use **Demo data** beside the theme and reset controls to load ten projects. In four-panel mode, use the database icon in any staff header. Loading replaces the current workspace after confirmation. The demo stays loaded after a refresh, and you can continue its assignments, tests, bug fixes, retests, approvals and customer reviews.
+
+The sample projects use dated, reproducible reports with named teammates and customer notes. Testing progress comes from passed scenarios; developer progress comes from submitted fixes. Some projects need work, some are waiting on another role, and others have finished UAT. AI summaries are simulated from those records, with possible causes kept separate from confirmed behavior.
+
+Turn **Demo data** off and confirm **Start from zero** to clear the demo and your changes to it across open windows. Four empty role accounts and your theme remain. Loading it again creates a fresh demo. Two new GUI suites cover this toggle and its seeded handoffs, bringing the runner to 18 suites.

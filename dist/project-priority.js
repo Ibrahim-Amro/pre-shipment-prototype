@@ -14,9 +14,10 @@
   }
 
   function priorityOf(project) {
-    if (/complete|finished|shipped|archived/i.test(project.status || '') || Number(project.progress) >= 100) return completed;
+    if (/complete|finished|shipped|archived/i.test(project.status || '')) return completed;
     if (window.UatWorkflow?.canSend(project)) return testingComplete;
     if (project.uat?.stage === 'customer') return customerAcceptance;
+    if (!project.uat && Number(project.progress) >= 100) return completed;
     const tracked = projectIssues(project);
     const open = tracked.filter(issue => issue.status !== 'Resolved');
     const unfinishedCases = (project.uat?.cases || []).filter(test => !['draft','pass'].includes(test.status));
@@ -45,10 +46,20 @@
     return priorityOf(a).rank - priorityOf(b).rank || compare(a, b);
   }
 
-  function badge(project) {
-    const {key, label} = priorityOf(project);
+  function developerPriority(project, employeeId = window.A?.state?.user?.id) {
+    const assigned = projectIssues(project).filter(issue => issue.assignee === employeeId);
+    const actionable = assigned.filter(issue => ['Open', 'In progress', 'Reopened'].includes(issue.status));
+    if (actionable.some(issue => issue.severity === 'Critical')) return urgent;
+    if (actionable.some(issue => issue.severity === 'High')) return high;
+    if (actionable.length) return normal;
+    if (priorityOf(project).key === 'completed') return completed;
+    return {key:'low', label:'No developer action pending', rank:3};
+  }
+
+  function badge(project, priority = priorityOf(project)) {
+    const {key, label} = priority;
     return `<span class="project-priority-badge" data-project-priority="${key}">${label}</span>`;
   }
 
-  window.ProjectPriority = {of: priorityOf, compare, compareUrgency, badge};
+  window.ProjectPriority = {of: priorityOf, forDeveloper:developerPriority, compare, compareUrgency, badge};
 })();

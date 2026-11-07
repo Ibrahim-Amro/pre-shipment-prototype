@@ -141,10 +141,11 @@
     </header>
     <nav class="uat-manager-tabs" aria-label="Manager project stages">
       <div>
+        ${stageButton('awaiting','Ready projects',projects.filter(project => UatWorkflow.stage(project)==='awaiting').length)}
         ${stageButton('testing','UAT Testing Stage',projects.filter(activeStage).length)}
-        ${stageButton('customer','Customer Acceptance Stage',projects.filter(project => UatWorkflow.stage(project)==='customer').length)}
+        ${stageButton('customer','Customer Acceptance Stage',projects.filter(project => UatWorkflow.customerAvailable(project)||project.uat?.customerSentAt).length)}
       </div>
-      ${stageButton('awaiting','Awaiting UAT',projects.filter(project => UatWorkflow.stage(project)==='awaiting').length,'ghost')}
+
     </nav>`;
   }
 
@@ -183,7 +184,7 @@
         reviews ? `${reviews} verified ${reviews === 1 ? 'fix awaits' : 'fixes await'} manager approval` : ''
       ].filter(Boolean).join(' · ');
       const review = reviews ? button('Review verified fixes', "Workspaces.go('issues');Workspaces.filter('issueFilter','review')", 'primary') : '';
-      return projectCard(project, detail, review + button('Review scenarios',`UatManager.openProject(${arg(project.id)})`));
+      return projectCard(project, detail, review + button('Review progress',`UatManager.openProject(${arg(project.id)})`)+button('Share early beta',`UatManager.shareEarlyBeta(${arg(project.id)})`,'secondary','external-link'));
     };
     const readyCard = project => projectCard(project,
       casesOf(project).length ? 'All approved test cases and fixes are complete' : 'UAT testing completed',
@@ -194,11 +195,13 @@
 
   function customerView(projects) {
     const customerCard = project => {
-      const count = (workspace().betaFeedback || []).filter(session => session.projectId === project.id).length;
-      const detail = count ? `${count} customer feedback ${count===1?'session':'sessions'} received` : 'Awaiting customer feedback';
-      return projectCard(project, detail, button('Open invitation draft',`Beta.previewInvitation(${arg(project.id)})`,'secondary','mail'));
+      const summary=Workspaces.customerSummary(project.id);
+      const detail=`${project.uat?.earlyBeta?.enabled?'Early beta · UAT is not finished · ':''}${summary.count?`${app().badge(summary.needsAction?'Needs action':'No action needed',summary.needsAction?'red':'green')} ${app().badge('Customer acceptance: '+summary.acceptance,summary.acceptance==='Failed'?'red':summary.acceptance==='Passed'?'green':'gray')} ${app().badge(summary.status,summary.status==='Ignored'?'gray':'blue')}<br>${esc(summary.preview)}`:'Awaiting customer feedback'}`;
+      const actions=button('Review customer feedback',`Workspaces.openCustomerFeedback(${arg(project.id)})`,'primary','message-square')+
+        (UatWorkflow.customerAvailable(project)?button('Open invitation draft',`Beta.previewInvitation(${arg(project.id)})`,'secondary','mail'):button('Review progress',`UatManager.openProject(${arg(project.id)})`));
+      return projectCard(project,detail,actions,`Workspaces.openCustomerFeedback(${arg(project.id)})`);
     };
-    return section('Customer acceptance projects','uat-customer-projects',projects,customerCard,'Send a finished UAT project to start customer acceptance.');
+    return section('Customer acceptance projects','uat-customer-projects',projects,customerCard,'Send a finished UAT project or share an early beta to start customer feedback.');
   }
 
   function awaitingView(projects) {
@@ -222,13 +225,7 @@
     </section>`;
   }
 
-  function gapsPanel(gaps) {
-    if (!gaps?.length) return '';
-    return `<section class="card uat-requirements" aria-labelledby="uat-gaps-heading">
-      <div class="uat-manager-heading"><span>${icon('alert-triangle')}</span><h2 id="uat-gaps-heading">Missing or unclear requirements</h2></div>
-      <ul class="uat-requirement-gaps">${gaps.map(gap => `<li>${esc(gap)}</li>`).join('')}</ul>
-    </section>`;
-  }
+  function gapsPanel() { return ''; }
 
   function staffPicker(project) {
     const retainedCases = casesOf(project).filter(testCase => testCase.status !== 'draft');
@@ -345,7 +342,7 @@
     let content;
     if (selected) content = preparationView(selected);
     else if (view === 'awaiting') content = awaitingView(projects.filter(project => UatWorkflow.stage(project)==='awaiting'));
-    else if (view === 'customer') content = customerView(projects.filter(project => UatWorkflow.stage(project)==='customer'));
+    else if (view === 'customer') content = customerView(projects.filter(project => UatWorkflow.customerAvailable(project)||project.uat?.customerSentAt));
     else content = testingView(projects.filter(activeStage));
     return `<div class="uat-overview uat-manager-overview">${stageHeading()}${content}</div>`;
   };
@@ -368,6 +365,18 @@
   };
 
   manager.openProposal = manager.openProject;
+
+  manager.shareEarlyBeta=function(id){
+    const project=projectById(id);if(workspace().role!=='manager'||UatWorkflow.stage(project)!=='testing')return;
+    const remaining=casesOf(project).filter(test=>test.status!=='pass').length;
+    const open=workspace().issues.filter(issue=>issue.projectId===id&&issue.status!=='Resolved').length;
+    app().modal(`<header class="modal-header"><h2>Share beta before UAT is finished?</h2>${button('Close','A.closeModal()','ghost','x')}</header><div class="modal-body"><div class="info-box"><strong>Warning: UAT is not finished.</strong></div><p>${esc(project.name)} has ${remaining} unfinished scenarios and ${open} unresolved bugs. The customer receives an early beta, and internal testing continues. This does not approve the release or mark UAT complete.</p><label class="ws-checkbox-line"><input id="uat-early-beta-ack" type="checkbox" required><span>I understand that UAT is unfinished and want to share this early beta.</span></label></div><footer class="modal-footer">${button('Back','A.closeModal()')}${button('Share early beta',`UatManager.confirmEarlyBeta(${arg(id)})`,'primary','send')}</footer>`,'large');
+  };
+  manager.confirmEarlyBeta=function(id){
+    const checkbox=document.getElementById('uat-early-beta-ack');if(!checkbox?.checked){app().toast('Acknowledge the unfinished UAT warning first.','error');return;}
+    const previousView=view;view='customer';selectedProjectId='';
+    if(!UatWorkflow.sendToCustomer(id,{early:true,acknowledged:true}))view=previousView;
+  };
 
   manager.sendProject = function (id) {
     const previousView = view;

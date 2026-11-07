@@ -19,12 +19,19 @@ function chromePath() {
   ].find(candidate => candidate && fs.existsSync(candidate));
 }
 
-async function launchBrowser() {
+async function launchBrowser({fixtures=true} = {}) {
   const executablePath = chromePath();
-  return chromium.launch({
+  const browser = await chromium.launch({
     ...(executablePath ? {executablePath} : {}),
     headless:process.env.GUI_HEADLESS !== '0'
   });
+  const original = browser.newContext.bind(browser);
+  browser.newContext = async options => {
+    const context = await original(options);
+    if(fixtures)await context.addInitScript(() => { window.__UAT_GUI_FIXTURES__ = true; });
+    return context;
+  };
+  return browser;
 }
 
 module.exports = {BASE_URL, RESULTS_DIR, launchBrowser};

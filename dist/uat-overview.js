@@ -49,10 +49,13 @@
   }
 
   function projectRow(project, pendingIds, openByProject) {
-    const priority = ProjectPriority.of(project);
-    const complete = priority.key === 'completed';
-    const progress = complete ? 100 : Math.max(0, Math.min(100, Number(project.progress ?? project.readiness) || 0));
-    const openCount = openByProject.get(project.id) || 0;
+    const developer = state().role === 'developer';
+    const priority = developer ? ProjectPriority.forDeveloper(project, state().user.id) : ProjectPriority.of(project);
+    const complete = ProjectPriority.of(project).key === 'completed';
+    const insights = UatWorkflow.insights(project, state().user.id);
+    const progress = developer ? insights.developerPercent : insights.testingPercent;
+    const reportedCount = state().issues.filter(issue => issue.projectId === project.id).length;
+    const reportedLabel = reportedCount === 1 ? '1 bug has been reported' : `${reportedCount} bugs have been reported`;
     const mark = project.abbr || project.name.split(/\s+/).slice(0,2).map(word => word[0]).join('');
     const date = deadline(complete ? project.completedAt || project.deadline : project.deadline);
     const id = escape(JSON.stringify(project.id));
@@ -63,6 +66,7 @@
         <span class="uat-project-info">
           <strong>${escape(project.name)}</strong>
           <span class="uat-project-description">${escape(project.description || '')}</span>
+          ${developer && !complete ? `<span class="uat-project-current-status">${escape(insights.developerLabel)}</span>` : ''}
           <span class="uat-project-meta">
             ${project.version ? `<span>${escape(project.version)}</span>` : ''}
             ${date ? `<span>${icon(iconLabel,13)} ${complete ? 'Shipped' : 'Due'} ${date}</span>` : ''}
@@ -70,9 +74,10 @@
           </span>
         </span>
         <span class="uat-project-status">
-          ${ProjectPriority.badge(project)}
-          ${complete ? '' : `<span class="uat-project-progress" role="img" aria-label="${progress}% complete"><span class="uat-project-meter" aria-hidden="true"><span style="width:${progress}%"></span></span><span>${progress}%</span></span>
-          <small>${openCount} open ${openCount === 1 ? 'finding' : 'findings'}</small>`}
+          ${ProjectPriority.badge(project, priority)}
+          ${complete ? '' : `<span class="uat-project-progress-group"><span class="uat-project-progress-label">${developer ? 'Developer progress' : 'Testing progress'} <b>${progress}%</b></span><span class="uat-project-progress" role="progressbar" aria-label="${developer ? 'Developer progress' : 'Testing progress'}" aria-valuenow="${progress}" aria-valuemin="0" aria-valuemax="100"><span class="uat-project-meter"><span style="width:${progress}%"></span></span></span></span>
+          ${developer ? `<span class="uat-project-testing-detail">Testing: ${insights.testingPassed} of ${insights.testingTotal} passed (${insights.testingPercent}%)</span>` : `<span class="uat-project-testing-detail">${insights.testingPassed} of ${insights.testingTotal} scenarios passed</span>`}
+          <small>${reportedLabel}</small>`}
         </span>
         <span class="uat-project-open" aria-hidden="true">${icon('chevron-right',17)}</span>
       </button>
@@ -123,19 +128,77 @@
   }
 
   function digestSummary(data) {
-    const top = data.active.slice().sort(ProjectPriority.compareUrgency)[0];
-    if (!top) return '<p>There are no active projects to summarize.</p>';
-    const priority = ProjectPriority.of(top);
-    const blockers = data.open.filter(issue => issue.projectId === top.id).sort((a,b) =>
-      (findingRank[a.severity] ?? Infinity) - (findingRank[b.severity] ?? Infinity));
-    const first = blockers[0];
-    const urgentCount = data.active.filter(project => ProjectPriority.of(project).key === 'urgent').length;
-    const next = state().role === 'manager' ? 'Review open findings and any customer notes before approving shipment.'
-      : state().role === 'tester' ? 'Verify the highest-priority customer workflow and capture evidence for the team.'
-      : 'Start with the highest-priority finding and submit your fix for review.';
-    return `<p><strong>${urgentCount ? `${urgentCount} urgent ${urgentCount === 1 ? 'project' : 'projects'}` : 'No urgent projects'}</strong> across ${data.active.length} active ${data.active.length === 1 ? 'project' : 'projects'}.</p>
-      <p>Start with <strong>${escape(top.name)}</strong> (${escape(priority.label)}).${first ? ` Review ${escape(first.title)}.` : ''}</p>
-      <p>${next}</p>`;
+    if (!data.active.length) {
+      const ready=data.completed.filter(project=>UatWorkflow.canSend(project));
+      return ready.length ? `<p>${ready.length} ${ready.length===1?'project has':'projects have'} finished UAT with no unresolved bugs.</p><p>${escape(ready[0].name)} is ready for the manager to send to customer acceptance.</p>` : '<p>There are no active projects to summarize.</p>';
+    }
+    const {role, user} = state();
+    const projects = new Map(data.active.map(project => [project.id, project]));
+    const cases = data.active.flatMap(project => (project.uat?.cases || [])
+      .filter(test => test.status !== 'draft' && (role !== 'tester' || test.assigneeId === user.id))
+      .map(test => ({...test, project})));
+    const issues = data.activeIssues.filter(issue => role !== 'developer' || issue.assignee === user.id);
+    const sortIssues = list => list.slice().sort((a,b) =>
+      (findingRank[a.severity] ?? Infinity) - (findingRank[b.severity] ?? Infinity) ||
+      ProjectPriority.compare(projects.get(a.projectId), projects.get(b.projectId)));
+    const actionable = sortIssues(issues.filter(issue => ['Open','In progress','Reopened'].includes(issue.status)));
+    const retests = issues.filter(issue => issue.status === 'Awaiting retest');
+    const reviews = issues.filter(issue => issue.status === 'In review');
+    const passed = cases.filter(test => test.status === 'pass').length;
+    const reportName = issue => `<strong>${escape(projects.get(issue.projectId)?.name)} · ${escape(issue.title)}</strong>`;
+    const caseName = test => `<strong>${escape(test.project.name)} · ${escape(test.title)}</strong>`;
+    const summary = `<p>${data.active.length} active ${data.active.length === 1 ? 'project' : 'projects'}. ${role === 'tester' ? `${passed} of your ${cases.length} assigned scenarios passed.` : `${passed} of ${cases.length} scenarios passed.`}</p>`;
+    let focus, next;
+    if (role === 'developer') {
+      if (actionable.length) {
+        const first = actionable[0];
+        focus = `${actionable.length} ${actionable.length === 1 ? 'bug needs' : 'bugs need'} your fix. Start with ${reportName(first)} (${escape(first.severity.toLowerCase())}).`;
+        next = 'Use the reported steps and expected result to check the change, then send a new build back to the tester.';
+      } else {
+        focus = 'No developer work is waiting.';
+        next = retests.length ? `${retests.length} submitted ${retests.length === 1 ? 'fix is' : 'fixes are'} waiting for retest, including ${reportName(retests[0])}. The tester has the next action.`
+          : reviews.length ? `${reviews.length} verified ${reviews.length === 1 ? 'fix is' : 'fixes are'} waiting for manager approval. ${reportName(reviews[0])} has already passed retesting.`
+          : cases.some(test => test.status !== 'pass') ? 'Testers are still running the approved scenarios. A new bug report will appear in your findings if they need a change.'
+          : 'The approved scenarios have passed. The manager can review the release and customer feedback.';
+      }
+    } else if (role === 'tester') {
+      const retest = cases.find(test => test.status === 'retest');
+      const pending = cases.find(test => test.status === 'pending');
+      const waiting = cases.find(test => ['fail','blocked'].includes(test.status));
+      if (retest) {
+        focus = `Ready to retest: ${caseName(retest)}${retest.buildVersion ? ` on build ${escape(retest.buildVersion)}` : ''}.`;
+        next = 'Repeat the original steps. Pass sends the verified fix to the manager; fail reopens the bug for the developer.';
+      } else if (pending) {
+        focus = `Next untested scenario: ${caseName(pending)}.`;
+        next = `${cases.filter(test => test.status === 'pending').length} assigned scenarios have not been run. Record what happened and include the steps and evidence if a test fails.`;
+      } else if (waiting) {
+        focus = `${caseName(waiting)} is ${waiting.status === 'blocked' ? 'blocked' : 'waiting for a developer fix'}.`;
+        next = 'Keep the current result until the blocker is removed or a new build is ready. There are no other untested scenarios assigned to you.';
+      } else {
+        focus = cases.length ? 'All your assigned scenarios have passed.' : 'There are no scenarios assigned to you on these projects.';
+        next = reviews.length ? `${reviews.length} verified ${reviews.length === 1 ? 'fix is' : 'fixes are'} with the manager for approval. You can continue exploratory testing while the review is pending.`
+          : 'You can explore beyond the checklist and report anything the approved scenarios did not cover.';
+      }
+    } else {
+      const readyReviews = sortIssues(reviews.filter(issue => UatWorkflow.canReview(issue)));
+      const readyProject = [...data.active,...data.completed].find(project => UatWorkflow.canSend(project));
+      if (readyReviews.length) {
+        focus = `${readyReviews.length} tester-verified ${readyReviews.length === 1 ? 'fix needs' : 'fixes need'} your approval. Review ${reportName(readyReviews[0])}.`;
+      } else if (readyProject) {
+        focus = `<strong>${escape(readyProject.name)}</strong> has passed every approved scenario and has no unresolved bugs. It is ready for customer acceptance.`;
+      } else if (actionable.length) {
+        focus = `${actionable.length} ${actionable.length === 1 ? 'bug is' : 'bugs are'} with developers. ${reportName(actionable[0])} is the highest priority (${escape(actionable[0].severity.toLowerCase())}).`;
+      } else {
+        focus = retests.length ? `${retests.length} submitted ${retests.length === 1 ? 'fix is' : 'fixes are'} waiting for tester verification.`
+          : 'There are no developer fixes waiting. Testing or customer review is still in progress.';
+      }
+      const notPassed = cases.filter(test => test.status !== 'pass').length;
+      next = notPassed ? `${notPassed} ${notPassed === 1 ? 'scenario still needs' : 'scenarios still need'} a passing result.`
+        : cases.length ? 'Every approved scenario has a passing result.' : 'No approved scenarios are running on these projects.';
+      const feedback = data.newFeedback.length + data.betaSessions;
+      if (feedback) next += ` ${feedback} customer feedback ${feedback === 1 ? 'item is' : 'items are'} available to review before the release decision.`;
+    }
+    return summary + `<p>${focus}</p><p>${next}</p>`;
   }
 
   function digestOwner() {

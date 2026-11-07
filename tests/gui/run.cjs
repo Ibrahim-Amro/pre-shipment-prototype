@@ -5,6 +5,16 @@ const {BASE_URL, RESULTS_DIR} = require('./support.cjs');
 
 const root = path.resolve(__dirname, '../..');
 const suites = [
+  ['Demo data toggle and realistic project states', 'test-demo-toggle.cjs'],
+  ['Demo retest and customer acceptance handoffs', 'test-demo-handoffs.cjs'],
+  ['Refresh home and global reset', 'test-refresh-reset.cjs'],
+  ['Beta refresh home and saved work', 'test-beta-refresh-home.cjs'],
+  ['Developer handoff insights', 'test-developer-insights.cjs'],
+  ['Selected task quick pass', 'test-quick-pass.cjs'],
+  ['Email composer and bounded task dialog', 'test-email-layout.cjs'],
+  ['Early beta and customer triage', 'test-customer-triage.cjs'],
+  ['Resolved bug views', 'test-resolved-views.cjs'],
+  ['Tester checklist and duplicate findings', 'test-duplicates.cjs'],
   ['Login, settings and shared navigation', 'test-gui-shell-smoke.cjs'],
   ['Manager preparation', 'test-gui-manager-preparation.cjs'],
   ['Full four-role UAT lifecycle', 'test-qa-full.cjs'],

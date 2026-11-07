@@ -28,7 +28,6 @@
     const project = projectById(projectId);
     if (!project || app().state.role !== 'tester' || !Workspaces.hasAcceptedProject(project.id)) return;
     const assigned = UatWorkflow.casesForProject(project.id);
-    const team = project.team.map(id => app().state.employees.find(person => person.id === id)).filter(Boolean);
     let selectedId = assigned.find(testCase => testCase.id === caseId)?.id ||
       assigned.find(canExecute)?.id ||
       assigned[0]?.id;
@@ -36,6 +35,7 @@
     app().modal(`<header class="modal-header uat-tester-header">
       <div><div class="eyebrow">TESTER PROJECT</div><h2>${escape(project.name)}</h2><p>${escape(project.version || '')} · User acceptance testing</p></div>
       <div class="uat-tester-actions">
+        <div class="uat-team-menu"><button type="button" class="btn uat-team-toggle" id="uat-team-toggle" aria-label="Project team" title="Project team" aria-expanded="false" aria-controls="uat-team-popover">${icon('users',22)}</button><section id="uat-team-popover" class="uat-team-popover" aria-label="Project team members" hidden><h3>Project team</h3>${Workspaces.projectTeam(project.id)}</section></div>
         <button type="button" class="btn secondary" id="uat-exploratory">${icon('bug')} Report an exploratory finding</button>
         <button type="button" class="icon-btn" aria-label="Close test project" onclick="A.closeModal()">${icon('x', 20)}</button>
       </div>
@@ -43,7 +43,7 @@
     <div class="uat-tester-body">
       <section class="uat-test-detail" id="uat-test-detail" aria-label="Test instructions"></section>
       <div class="uat-tester-side">
-        <details class="uat-project-team-disclosure" open><summary><span><strong>Project team</strong><small>${team.length} teammates</small></span><span class="uat-team-avatars">${team.slice(0,4).map(person=>app().avatar(person,24)).join('')}</span></summary>${Workspaces.projectTeam(project.id)}</details>
+
         <aside class="uat-test-queue" aria-labelledby="uat-test-queue-heading">
         <h3 id="uat-test-queue-heading">Assigned test cases</h3>
         <p>Manager-approved AI scenarios</p>
@@ -51,6 +51,26 @@
       </aside></div>
     </div>`, 'wide uat-tester-modal');
 
+    document.getElementById('uat-team-toggle').onclick = event => {
+      const popup=document.getElementById('uat-team-popover');
+      popup.hidden=!popup.hidden;
+      event.currentTarget.setAttribute('aria-expanded', String(!popup.hidden));
+      if(!popup.hidden){
+        const anchor=event.currentTarget.getBoundingClientRect();
+        const modal=event.currentTarget.closest('.modal-content').getBoundingClientRect();
+        if(!popup.dataset.detached){
+          const trigger=event.currentTarget;
+          document.body.appendChild(popup);popup.dataset.detached='true';
+          const observer=new MutationObserver(()=>{if(!trigger.isConnected){popup.remove();observer.disconnect();}});
+          observer.observe(document.getElementById('modal-root'),{childList:true,subtree:true});
+        }
+        popup.style.position='fixed';
+        popup.style.left=Math.max(modal.left+12,Math.min(anchor.left,modal.right-Math.min(370,modal.width-24)-12))+'px';
+        popup.style.top=Math.max(8,Math.min(anchor.bottom+8,innerHeight-240))+'px';
+        popup.style.maxHeight=Math.max(100,innerHeight-parseFloat(popup.style.top)-12)+'px';
+        popup.style.width=Math.min(370,modal.width-24)+'px';
+      }
+    };
     const detail = document.getElementById('uat-test-detail');
     const queue = document.getElementById('uat-test-queue-list');
     document.getElementById('uat-exploratory').onclick = () => Workspaces.reportFinding(project.id);
@@ -59,10 +79,10 @@
       const cases = UatWorkflow.casesForProject(project.id);
       const selected = cases.find(testCase => testCase.id === selectedId);
       queue.innerHTML = cases.map((testCase, index) =>
-        `<li><button type="button" data-case-index="${index}" aria-pressed="${selectedId === testCase.id}">
+        `<li class="uat-queue-row"><button type="button" class="uat-case-select" data-case-index="${index}" aria-pressed="${selectedId === testCase.id}">
           <span class="uat-case-number">${String(index + 1).padStart(2, '0')}</span>
           <span><strong>${escape(testCase.title)}</strong>${badge(testCase)}</span>
-        </button></li>`
+        </button>${selectedId === testCase.id && (canExecute(testCase) || testCase.status === 'pass') ? `<button type="button" class="uat-quick-pass" data-quick-pass aria-label="${testCase.status === 'pass' ? 'Test case passed' : 'Pass selected test case'}" title="${testCase.status === 'pass' ? 'This test case has passed' : 'Mark this test case as passed'}"${testCase.status === 'pass' ? ' disabled' : ''}>${icon('check',18)}</button>` : ''}</li>`
       ).join('');
       detail.innerHTML = selected ? caseDetail(selected) : `<div class="uat-tester-empty">
         ${icon('clipboard-check', 24)}<h3>No cases assigned yet</h3>
@@ -70,6 +90,10 @@
       </div>`;
       if (focusCase) detail.querySelector('h3').focus();
       queue.onclick = event => {
+        if (event.target.closest('[data-quick-pass]')) {
+          if (selected && canExecute(selected) && !detail.querySelector('.uat-failure-form')) record('pass');
+          return;
+        }
         const button = event.target.closest('[data-case-index]');
         if (!button) return;
         selectedId = cases[Number(button.dataset.caseIndex)].id;
@@ -115,6 +139,14 @@
     render();
   };
 
+  function readableTestData(value) {
+    const text=String(value||'');
+    const lines=text.split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
+    if(lines.length>1)return '<ul class="uat-readable-data">'+lines.map(line=>'<li>'+escape(line)+'</li>').join('')+'</ul>';
+    const fields=text.match(/(?:^|[.\n]\s*)(Title|Description|Priority|Due|Task|New title|New priority|Search)\s*:\s*[^.\n]+/gi);
+    if(fields?.length)return '<ul class="uat-readable-data">'+fields.map(field=>'<li>'+escape(field.replace(/^[.\s]+/,'').replace(/^Title:/i,'Task name:').replace(/^Description:/i,'Notes:'))+'</li>').join('')+'</ul>';
+    return '<p>'+escape(text)+'</p>';
+  }
   function caseDetail(testCase) {
     const retest = testCase.status === 'retest' || (testCase.status === 'blocked' && testCase.bugId && testCase.buildVersion);
     const editable = canExecute(testCase);
@@ -125,7 +157,7 @@
       <section class="uat-case-section"><h4>Instructions</h4>
         <ol>${steps.filter(Boolean).map(step => `<li>${escape(step)}</li>`).join('')}</ol>
       </section>
-      <section class="uat-case-section uat-case-expectations"><div><h4>Required test data</h4><p>${escape(testCase.testData)}</p></div>
+      <section class="uat-case-section uat-case-expectations"><div><h4>What to enter or prepare</h4><p class="uat-data-intro">Use these values in the matching beta-app fields:</p>${readableTestData(testCase.testData)}</div>
         <div><h4>Expected result</h4><p>${escape(testCase.expected)}</p></div>
       </section>
       <details class="uat-case-code"><summary>${icon('code')} View code snippet</summary><pre><code>${escape(testCase.code)}</code></pre></details>
@@ -150,6 +182,8 @@
     }
 
     actions.hidden = true;
+    const quickPass = document.querySelector('#uat-test-queue-list [data-quick-pass]');
+    if (quickPass) quickPass.disabled = true;
     region.innerHTML = `<form class="uat-failure-form">
       <h4>Describe the failure</h4>
       <label class="field">What happened?
@@ -169,6 +203,7 @@
     form.querySelector('[data-cancel]').onclick = () => {
       region.replaceChildren();
       actions.hidden = false;
+      if (quickPass?.isConnected) quickPass.disabled = false;
       actions.querySelector('[data-outcome="fail"]').focus();
     };
     form.onsubmit = event => {

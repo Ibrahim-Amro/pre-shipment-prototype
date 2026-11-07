@@ -19,6 +19,23 @@
 
 .four-view-toggle:hover { background: #1848c5; }
 
+.workspace-demo-button {
+  display:inline-flex;align-items:center;gap:7px;flex:none;min-height:34px;padding:6px 10px;
+  border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--muted);
+  font:650 13px 'DM Sans',sans-serif;cursor:pointer;white-space:nowrap;
+}
+.workspace-demo-button:hover {border-color:var(--blue);color:var(--blue)}
+.workspace-demo-button[aria-pressed="true"] {background:var(--blue-soft);color:var(--blue);border-color:var(--blue)}
+.demo-toggle-track {position:relative;width:24px;height:14px;border-radius:9px;background:var(--muted);opacity:.8}
+.demo-toggle-track::after {content:'';position:absolute;width:10px;height:10px;top:2px;left:2px;border-radius:50%;background:var(--surface)}
+[aria-pressed="true"]>.demo-toggle-track {background:var(--blue);opacity:1}
+[aria-pressed="true"]>.demo-toggle-track::after {left:12px;background:#fff}
+.demo-data-description p+p {margin-top:16px}
+.four-demo-state {position:absolute;right:3px;bottom:3px;width:5px;height:5px;border-radius:50%;background:var(--muted)}
+.four-panel-header [data-panel-action="demo"][aria-pressed="true"] {background:var(--blue-soft);color:var(--blue)}
+.four-panel-header [data-panel-action="demo"][aria-pressed="true"] .four-demo-state {background:var(--blue)}
+@media(max-width:760px){.topbar .workspace-demo-button{width:32px;padding:0;justify-content:center}.topbar .workspace-demo-button>span:last-child{display:none}}
+
 .four-view-toggle:focus-visible,
 .four-view-shell button:focus-visible,
 .four-view-shell select:focus-visible {
@@ -328,3 +345,67 @@ body.four-view-child .modal-content { max-height: 96dvh; }
   .four-view-focused .four-panel.is-focused { flex: 1; min-height: 0; }
   .four-view-toggle { right: 12px; bottom: 12px; }
 }
+
+/* Keep the checklist dominant in tester project windows. */
+body .uat-tester-modal .uat-tester-body {grid-template-columns:minmax(0,1fr) minmax(290px,36%);height:70dvh;max-height:70dvh;min-height:0}
+body .uat-tester-modal .uat-tester-side {display:flex;min-height:0;overflow:hidden}
+body .uat-tester-modal .uat-test-queue {width:100%;height:100%;overflow:auto;padding:18px}
+body .uat-tester-modal .uat-test-queue h3 {font-size:20px}
+body .uat-tester-modal .uat-test-queue button {padding:12px;min-height:64px}
+body .uat-tester-modal .uat-test-queue button strong {font-size:14px}
+.uat-team-menu {position:relative}
+.uat-team-toggle {width:42px;height:42px;padding:0}
+.uat-team-popover {position:absolute;right:0;top:48px;width:min(370px,80vw);max-height:55dvh;overflow:auto;z-index:20;padding:16px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 45px #17253e30}
+.uat-team-popover[hidden] {display:none}
+.uat-team-popover .ws-project-roster {border:0;padding:0}
+@media(max-width:650px){body .uat-tester-modal .uat-tester-body {grid-template-columns:minmax(0,1fr);overflow:auto}body .uat-tester-modal .uat-tester-side {grid-row:1;min-height:220px;max-height:35dvh}body .uat-tester-modal .uat-test-detail {overflow:visible}}
+
+/* Shared readable type sizes across staff and customer views. */
+body .uat-overview-header h1,body .ws-page-header h1,body .page-header h1 {font-size:30px;line-height:1.3}
+body .uat-overview-header p,body .ws-page-header p,body .page-header p,body .uat-preparation-title p,body .uat-manager-project p {font-size:15px;line-height:1.6}
+body .eyebrow,body .planner-eyebrow {font-size:12px;line-height:1.5;letter-spacing:1px}
+body .btn,body .nav-item,body .field label,body .field span,body input,body textarea,body select {font-size:14px}
+body .uat-case-section p,body .uat-case-section ol,body .uat-case-section h4,body .uat-readable-data {font-size:15px;line-height:1.65}
+body .uat-test-queue p,body .uat-case-number,body .pill,body .badge {font-size:12px}
+body .uat-manager-case summary strong,body .uat-manager-case-detail p,body .uat-manager-case-detail ol,body .uat-manager-muted {font-size:14px;line-height:1.6}
+body .uat-manager-tabs,body .uat-manager-tabs>div {justify-content:flex-start;gap:10px;flex-wrap:wrap}
+body .uat-manager-tabs button {min-height:42px;font-size:14px;padding:10px 14px}
+body .uat-team-popover {right:auto;z-index:100;max-height:calc(100dvh - 180px);color:var(--text)}
+body .uat-team-popover .ws-project-roster {width:100%;min-width:0;max-width:none}
+body .uat-readable-data {padding-left:20px;margin:8px 0 0}
+body .uat-data-intro {margin:0 0 8px;color:var(--muted)}
+body .beta-entry-panel {width:min(100%,480px);padding:28px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+body .beta-entry-panel h1 {font-size:28px;margin-bottom:10px}
+body .beta-entry-panel p {font-size:15px;margin-bottom:18px}
+
+body .app-window :is(p,small,label,input,textarea,select,td,th,summary),body .modal-content :is(p,small,label,input,textarea,select,td,th,summary) {font-size:14px!important;line-height:1.6}
+body .app-window .btn,body .modal-content .btn,body .app-window .nav-item {font-size:14px!important}
+body .app-window .eyebrow,body .modal-content .eyebrow {font-size:14px;letter-spacing:.8px}
+body .uat-team-popover .person-name {font-size:20px}
+
+body .beta-entry-panel h2 {font-size:28px;line-height:1.3;margin-bottom:12px}
+
+/* Clear bug and review information in every role workspace. */
+body .ws-table .ws-table-title,body .ws-table .ws-finding-project {font-size:22px;line-height:1.4;white-space:normal}
+body .ws-project-detail-stats {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+body .ws-project-detail-stats>div {min-width:0}
+body .ws-project-main .ws-resolved-bugs {margin-top:22px}
+body .ws-resolved-bugs>summary {display:inline-block;padding:8px 12px;border:1px solid var(--line);border-radius:7px;cursor:pointer;font-weight:650}
+body .ws-bug-ai-heading {display:block;font-size:22px;line-height:1.4;margin-bottom:12px}
+body .ws-ai-strip p,body .ws-fix-summary p,body .ws-resilience-result p {font-size:17px!important;line-height:1.6}
+body .ws-resilience-result h3 {font-size:25px}
+body .ws-resilience-result .ws-positive-label,body .ws-fix-checks span,body .ws-fix-checks strong {font-size:17px}
+body .ws-fix-summary>strong {font-size:22px;line-height:1.5}
+body .ws-beta-review-actions {display:flex;gap:10px;flex-wrap:wrap;padding:16px}
+body .ws-beta-note-choice {display:flex;align-items:flex-start;gap:12px;padding:16px 0;border-bottom:1px solid var(--line)}
+body .ws-beta-note-choice input {flex:none;width:20px;height:20px}
+body .ws-customer-note-list {padding-left:22px;display:grid;gap:20px}
+body .ws-customer-note-list h3 {font-size:20px;margin:8px 0}
+body .ws-role-manager>.ws-section-heading h2 {font-size:30px}
+body .ws-beta-session-summary>span:last-child {display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+@media(max-width:650px){body .ws-project-detail-stats{grid-template-columns:1fr}body .ws-table .ws-table-title{font-size:20px}}
+
+body .ws-project-detail-stats>div>span {font-size:16px;line-height:1.5}
+body .ws-score-ring>div>span {font-size:13px;letter-spacing:.5px}
+body .ws-fix-summary>span,body .ws-fix-checks span {font-size:15px}
+body .ws-resilience-result .ws-badge {font-size:14px}

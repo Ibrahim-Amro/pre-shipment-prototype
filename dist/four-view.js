@@ -11,6 +11,10 @@
   let projectId;
   let focusedRole;
   let previousAppState;
+  let homeOnLaunch=false;
+  let controlsInitialized=false;
+  const viewStorageKey='pre-shipment-four-view';
+  function rememberView(){if(shell)sessionStorage.setItem(viewStorageKey,JSON.stringify({open:!shell.hidden,projectId,people}));}
   const people = {};
   const manualPeople = new Set();
 
@@ -48,6 +52,7 @@
     url.searchParams.set('multiView', '1');
     url.searchParams.set('workspaceRole', role);
     if (projectId) url.searchParams.set('project', projectId);
+    if(homeOnLaunch)url.searchParams.set('home','1');
     if (role !== 'customer' && people[role]) url.searchParams.set('employee', people[role]);
     return url.href;
   }
@@ -81,16 +86,22 @@
     const themeButton = panel.querySelector('[data-panel-action="theme"]');
     themeButton.innerHTML = icon(theme === 'dark' ? 'sun' : 'moon', 16);
     themeButton.setAttribute('aria-label', `${labels[role]}: switch to ${theme === 'dark' ? 'light' : 'dark'} theme`);
+    const demoButton=panel.querySelector('[data-panel-action="demo"]');
+    const demoEnabled=app().state.demoMode===true;
+    demoButton.setAttribute('aria-pressed',String(demoEnabled));
+    demoButton.setAttribute('aria-label',demoEnabled?'Clear demo data':'Load demo data');
+    demoButton.title=demoEnabled?'Demo data is on · Clear and start from zero':'Load demo data';
     for (const button of panel.querySelectorAll('[data-panel-action]')) button.disabled = !childApp;
   }
 
   function refreshControls(resetPeople = false) {
     const choices = projects();
     if (!choices.some(project => project.id === projectId)) {
-      projectId = choices.find(project => UatWorkflow.stage(project) === 'testing')?.id || choices[0]?.id;
+      projectId = !controlsInitialized&&!homeOnLaunch ? choices.find(project => UatWorkflow.stage(project) === 'testing')?.id || choices[0]?.id : undefined;
     }
+    controlsInitialized=true;
     const select = shell.querySelector('#four-project');
-    select.innerHTML = choices.map(project => `<option value="${escape(project.id)}"${project.id === projectId ? ' selected' : ''}>${escape(project.name)}</option>`).join('');
+    select.innerHTML = (!projectId?'<option value="">All projects</option>':'')+choices.map(project => `<option value="${escape(project.id)}"${project.id === projectId ? ' selected' : ''}>${escape(project.name)}</option>`).join('');
 
     for (const role of roles.filter(role => role !== 'customer')) {
       const list = rolePeople(role);
@@ -103,13 +114,14 @@
       loadFrame(role);
       refreshPanel(role);
     }
-    const ready = UatWorkflow.stage(selectedProject()) === 'customer';
+    const ready = UatWorkflow.customerAvailable(selectedProject());
     const status = shell.querySelector('[data-customer-status]');
     status.classList.toggle('is-ready', ready);
-    status.title = ready ? 'Beta ready' : 'Waiting for customer handoff';
+    status.title = ready ? (selectedProject()?.uat?.earlyBeta?.enabled?'Early beta · UAT unfinished':'Beta ready') : 'Waiting for customer handoff';
     status.setAttribute('aria-label', status.title);
     refreshPanel('customer');
     loadFrame('customer');
+    rememberView();
   }
 
   function focusPanel(role) {
@@ -138,6 +150,8 @@
         <h2 class="four-role four-role-${role}">${labels[role]}</h2>
         ${role === 'customer' ? '<strong class="four-customer-name">Jordan Lee</strong><span class="four-customer-status" data-customer-status role="img"></span>' : `<label class="four-person-select"><span class="four-screen-reader">${labels[role]} account</span><select data-person-role="${role}" aria-label="${labels[role]} account"></select></label>
           <button type="button" data-panel-action="theme" data-panel-role="${role}" title="Change this panel’s theme">${icon('moon', 16)}</button>
+          <button type="button" data-panel-action="reset" data-panel-role="${role}" aria-label="Reset mock data" title="Reset mock data">${icon('refresh-cw',16)}</button>
+          <button type="button" data-panel-action="demo" data-panel-role="${role}" aria-label="Load demo data" aria-pressed="false" title="Load demo data">${icon('database',16)}<span class="four-demo-state" aria-hidden="true"></span></button>
           <button type="button" data-panel-action="messages" data-panel-role="${role}" title="Messages and notifications">${icon('bell', 17)}</button>
           <button type="button" data-panel-action="settings" data-panel-role="${role}" aria-label="${labels[role]} settings" title="Workspace settings">${icon('settings', 16)}</button>`}
         <button type="button" class="four-focus" data-focus-role="${role}" aria-label="Focus ${labels[role]} panel" aria-pressed="false" title="Focus this panel">${icon('maximize', 16)}</button>
@@ -148,6 +162,7 @@
     document.body.appendChild(shell);
     shell.querySelector('.four-view-close').onclick = view.close;
     shell.querySelector('#four-project').onchange = event => {
+      homeOnLaunch=false;
       projectId = event.target.value;
       manualPeople.clear();
       refreshControls(true);
@@ -159,6 +174,7 @@
         manualPeople.add(role);
         loadFrame(role);
         refreshPanel(role);
+        rememberView();
       };
     }
     for (const frame of shell.querySelectorAll('iframe')) {
@@ -169,7 +185,11 @@
         const role = button.dataset.panelRole;
         const childApp = panelApp(role);
         if (!childApp) return;
-        if (button.dataset.panelAction === 'theme') {
+        if (button.dataset.panelAction === 'reset') {
+          childApp.closeModal();childApp.resetPrompt();
+        } else if (button.dataset.panelAction === 'demo') {
+          childApp.closeModal();childApp.demoPrompt();
+        } else if (button.dataset.panelAction === 'theme') {
           const frame = shell.querySelector(`iframe[data-role="${role}"]`);
           childApp.setTheme(frame.contentDocument.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
           childApp.render();
@@ -212,6 +232,7 @@
     toggle.setAttribute('aria-pressed', 'false');
     toggle.innerHTML = `${icon('grid', 20)}<span>Open four panels</span>`;
     toggle.focus();
+    rememberView();
   };
 
   view.onWorkspaceSync = function () {
@@ -233,6 +254,16 @@
     toggle.innerHTML = `${icon('grid', 20)}<span>Open four panels</span>`;
     toggle.onclick = () => shell && !shell.hidden ? view.close() : view.open();
     document.body.appendChild(toggle);
+    if(performance.getEntriesByType('navigation')[0]?.type==='reload'){
+      try{
+        const saved=JSON.parse(sessionStorage.getItem(viewStorageKey));
+        if(saved?.open){
+          homeOnLaunch=true;projectId=saved.projectId;
+          for(const role of roles.filter(role=>role!=='customer'))if(saved.people?.[role]){people[role]=saved.people[role];manualPeople.add(role);}
+          view.open();
+        }
+      }catch{}
+    }
     window.addEventListener('keydown', event => {
       if (event.key === 'Escape' && shell && !shell.hidden) {
         if (focusedRole) focusPanel(focusedRole);

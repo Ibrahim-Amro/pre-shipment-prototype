@@ -12,6 +12,9 @@ window.initBeta = function ({A, app, state, icon, esc, brand, titlebar, closeBtn
   ];
   let betaSession;
   let setupGeneration=0;
+  // Refresh returns to beta entry; existing customer work remains saved until Open.
+  let awaitingHomeEntry=performance.getEntriesByType('navigation')[0]?.type==='reload'||betaParams.get('home')==='1';
+  const customerAvailable=project=>UatWorkflow.customerAvailable?.(project) ?? UatWorkflow.stage(project)==='customer';
 
   function betaKey(project) {
     return project.betaKey || 'BETA-' + project.id.toUpperCase();
@@ -32,13 +35,20 @@ window.initBeta = function ({A, app, state, icon, esc, brand, titlebar, closeBtn
   }
 
   function saveBetaSession() {
+    if(A.isWorkspaceCurrent?.()===false)return false;
     sessionStorage.setItem(betaSessionKey, JSON.stringify(betaSession));
+    return true;
   }
 
   const Beta = window.Beta = {
     startEmbedded(projectId) {
       const project=state.projects.find(item=>item.id===projectId);
-      if(!project||UatWorkflow.stage(project)!=='customer'){
+      if(awaitingHomeEntry){
+        setupGeneration++;
+        renderEmbeddedWaiting(project);
+        return;
+      }
+      if(!project||!customerAvailable(project)){
         setupGeneration++;
         renderEmbeddedWaiting(project);
         return;
@@ -46,8 +56,9 @@ window.initBeta = function ({A, app, state, icon, esc, brand, titlebar, closeBtn
       if(!betaSession){
         try{betaSession=JSON.parse(sessionStorage.getItem(betaSessionKey));}catch{}
         if(!betaSession||betaSession.projectId!==projectId){
-          betaSession={id:'beta-'+Array.from(crypto.getRandomValues(new Uint32Array(3)),value=>value.toString(36)).join('-'),projectId,stage:'setup',planner:null,notes:[],draft:{type:'Suggestion',title:'',body:''}};
-          saveBetaSession();
+          betaSession=null;
+          renderEmbeddedWaiting(project);
+          return;
         }
       }
       if(betaSession.stage==='finished')renderBetaConfirmation();
@@ -58,13 +69,15 @@ window.initBeta = function ({A, app, state, icon, esc, brand, titlebar, closeBtn
     onWorkspaceSync() {
       if(!embeddedCustomer)return;
       const project=state.projects.find(item=>item.id===embeddedProjectId);
-      if(UatWorkflow.stage(project)!=='customer'){
-        if(!document.getElementById('beta-embedded-waiting')){
+      if(!customerAvailable(project)){
+        if(document.getElementById('beta-embedded-waiting')?.dataset.ready!=='false'){
           setupGeneration++;
           renderEmbeddedWaiting(project);
         }
       }else if(document.getElementById('beta-embedded-waiting')){
         Beta.startEmbedded(embeddedProjectId);
+      }else if(betaSession?.stage==='active' && Boolean(document.querySelector('.beta-session-warning'))!==Boolean(project.uat?.earlyBeta?.unfinished)){
+        renderBetaApp();
       }
     },
 
@@ -105,15 +118,15 @@ window.initBeta = function ({A, app, state, icon, esc, brand, titlebar, closeBtn
 
     keyForm(id) {
       const workspace = readWorkspace() || state;
-      const available = workspace.projects.filter(project => UatWorkflow.stage(project) === 'customer');
+      const available = workspace.projects.filter(project => customerAvailable(project));
       const project = id ? available.find(item => item.id === id) : available[0];
       if (!project) {
-        return `${Beta.backButton()}<div class="eyebrow">CUSTOMER BETA ACCESS</div><h2>Your beta is being prepared.</h2>
+        return `${embeddedCustomer?'':Beta.backButton()}<div class="eyebrow">CUSTOMER BETA ACCESS</div><h2>Your beta is being prepared.</h2>
           <p>The manager can open customer acceptance after UAT is approved.</p>`;
       }
-      return `${Beta.backButton()}<div class="eyebrow">CUSTOMER BETA ACCESS</div>
+      return `${embeddedCustomer?'':Beta.backButton()}<div class="eyebrow">CUSTOMER BETA ACCESS</div>
         <h2>Open Your Beta Version</h2>
-        <p>Your demo access key for ${esc(project.name)} is ready.</p>
+        <p>Your demo access key for ${esc(project.name)} is ready.</p>${project.uat?.earlyBeta?.unfinished ? '<div class="warning-box" role="status"><strong>Early beta · UAT unfinished</strong><p>Testing and fixes are still in progress. This beta has not passed internal UAT.</p></div>' : ''}
         <form onsubmit="Beta.launch(event)">
           ${available.length > 1 && !betaParams.get('project') ? `<div class="field"><label for="beta-project">Project</label><select id="beta-project" name="project" onchange="Beta.selectCustomerProject(this.value)">${available.map(item => `<option value="${esc(item.id)}"${item.id === project.id ? ' selected' : ''}>${esc(item.name)}</option>`).join('')}</select></div>` : `<input type="hidden" name="project" value="${esc(project.id)}">`}
           <div class="field"><label for="beta-key">Beta access key</label><input id="beta-key" name="key" value="${esc(betaKey(project))}" autocomplete="off" spellcheck="false" required aria-describedby="beta-key-error"></div>
@@ -135,7 +148,7 @@ window.initBeta = function ({A, app, state, icon, esc, brand, titlebar, closeBtn
       const workspace = readWorkspace() || state;
       const requestedId = form.elements.project?.value || betaParams.get('project');
       const key = input.value.trim().toUpperCase();
-      const project = workspace.projects.find(item => UatWorkflow.stage(item) === 'customer' && (!requestedId || item.id === requestedId) && betaKey(item) === key);
+      const project = workspace.projects.find(item => customerAvailable(item) && (!requestedId || item.id === requestedId) && betaKey(item) === key);
       if (!project) {
         error.textContent = 'That key does not match this beta invitation. Check the key and try again.';
         input.setAttribute('aria-invalid', 'true');
@@ -143,7 +156,11 @@ window.initBeta = function ({A, app, state, icon, esc, brand, titlebar, closeBtn
         return;
       }
       input.removeAttribute('aria-invalid');
-      const session = {
+      let saved;
+      try{saved=JSON.parse(sessionStorage.getItem(betaSessionKey));}catch{}
+      const resume=awaitingHomeEntry && saved?.projectId===project.id &&
+        (embeddedCustomer || saved.id===betaParams.get('betaSession'));
+      const session = resume ? saved : {
         id: 'beta-' + Array.from(crypto.getRandomValues(new Uint32Array(3)), value => value.toString(36)).join('-'),
         projectId: project.id,
         stage: 'setup',
@@ -151,12 +168,29 @@ window.initBeta = function ({A, app, state, icon, esc, brand, titlebar, closeBtn
         notes: [],
         draft: {type: 'Suggestion', title: '', body: ''}
       };
+      awaitingHomeEntry=false;
+      if(embeddedCustomer){
+        betaSession=session;saveBetaSession();
+        if(session.stage==='finished')renderBetaConfirmation();
+        else if(session.stage==='active')renderBetaApp();
+        else renderBetaSetup(project);
+        return;
+      }
+      if(resume){
+        betaSession=session;
+        if(session.stage==='finished')renderBetaConfirmation();
+        else if(session.stage==='active')renderBetaApp();
+        else renderBetaSetup(project);
+        return;
+      }
       const url = new URL(location.pathname, location.href);
       url.searchParams.set('betaSession', session.id);
       // A new window initially copies its opener's session storage.
+      const previousSession=sessionStorage.getItem(betaSessionKey);
       sessionStorage.setItem(betaSessionKey, JSON.stringify(session));
       const popup = window.open(url.href, '_blank', 'popup,width=1200,height=820,resizable,scrollbars');
-      sessionStorage.removeItem(betaSessionKey);
+      if(previousSession)sessionStorage.setItem(betaSessionKey,previousSession);
+      else sessionStorage.removeItem(betaSessionKey);
       error.textContent = '';
       if (!popup) {
         error.textContent = 'Allow pop-ups for this site, then choose Launch beta again.';
@@ -171,7 +205,7 @@ window.initBeta = function ({A, app, state, icon, esc, brand, titlebar, closeBtn
     },
 
     prepareInvitation(project) {
-      if (state.role !== 'manager' || UatWorkflow.stage(project) !== 'customer') return;
+      if (state.role !== 'manager' || !customerAvailable(project)) return;
       if (!project.betaKey) {
         do {
           const number = crypto.getRandomValues(new Uint32Array(1))[0];
@@ -182,11 +216,11 @@ window.initBeta = function ({A, app, state, icon, esc, brand, titlebar, closeBtn
       const key = betaKey(project);
       project.customerLink = url;
       project.customerEmail = {
-        to: project.customerEmail?.to || '',
+        to: project.customerEmail?.to || 'customer@example.com',
         subject: `Customer acceptance · ${project.name}`,
         body: `Hi,
 
-${project.name} has completed internal UAT and is ready for your acceptance review. Open the link and enter your beta access key. Add notes as you explore and send them together when you finish.
+${project.uat?.earlyBeta?.unfinished ? `${project.name} is available as an early beta. WARNING: internal UAT is not finished and known issues may remain. This invitation does not mean the release has passed UAT.` : `${project.name} has completed internal UAT and is ready for your acceptance review.`} Open the link and enter your beta access key. Add notes as you explore and send them together when you finish.
 
 Open your beta: ${url}
 Beta access key: ${key}
@@ -197,7 +231,7 @@ ${projectManager(project, state)?.name || 'Project manager'} · Pre-Shipment`
 
     previewInvitation(id) {
       const project = state.projects.find(item => item.id === id);
-      if (state.role !== 'manager' || UatWorkflow.stage(project) !== 'customer') return;
+      if (state.role !== 'manager' || !customerAvailable(project)) return;
       if (!project.customerEmail) {
         Beta.prepareInvitation(project);
         A.save();
@@ -205,25 +239,33 @@ ${projectManager(project, state)?.name || 'Project manager'} · Pre-Shipment`
       const url = invitationUrl(id).href;
       const key = betaKey(project);
       const draft = project.customerEmail;
+      if (!draft.to?.trim()) draft.to = 'customer@example.com';
       A.modal(`<div class="modal-header"><h2>Customer acceptance email draft</h2>${closeBtn()}</div>
         <form id="beta-invitation-form">
           <div class="modal-body">
             <div class="field"><label for="beta-invite-to">To</label><input id="beta-invite-to" name="to" type="email" value="${esc(draft.to)}" placeholder="customer@example.com" required></div>
             <div class="field"><label for="beta-invite-subject">Subject</label><input id="beta-invite-subject" name="subject" value="${esc(draft.subject)}" required></div>
-            <div class="field"><label for="beta-invite-draft">Email draft</label><textarea id="beta-invite-draft" name="body" rows="8" required>${esc(draft.body)}</textarea></div>
+            ${project.uat?.earlyBeta?.unfinished ? '<div class="warning-box" role="status"><strong>Early beta · UAT unfinished</strong><p>This invitation shares an unfinished release. Testing and bug fixes are still required.</p></div>' : ''}
+            <div class="field beta-email-message"><label for="beta-invite-draft">Email draft</label><textarea id="beta-invite-draft" name="body" rows="12" required>${esc(draft.body)}</textarea></div>
             <div class="field"><label for="beta-invite-url">Beta invitation link</label><div class="row"><input id="beta-invite-url" readonly value="${esc(url)}"><button type="button" class="btn" onclick="A.copy(document.getElementById('beta-invite-url').value)">Copy link</button></div></div>
             <div class="field"><label for="beta-invite-key">Beta access key</label><div class="row"><input id="beta-invite-key" readonly value="${esc(key)}"><button type="button" class="btn" onclick="A.copy(document.getElementById('beta-invite-key').value)">Copy key</button></div></div>
-            <p class="muted">Email delivery is simulated. You can copy the draft and share it separately.</p>
+            <p class="muted">Email delivery is simulated in this prototype.</p>
           </div><div class="modal-footer">
-            <button type="button" class="btn" onclick="A.copy(document.getElementById('beta-invite-draft').value)">Copy draft</button>
-            <button type="button" class="btn" id="open-beta-invite">Open invitation ${icon('external-link',14)}</button>
-            <button class="btn primary">${icon('send',14)} Simulate sending email</button>
+            <button type="button" class="btn" onclick="A.closeModal()">${icon('arrow-left',14)} Back</button>
+            <button class="btn primary">${icon('send',14)} Send email</button>
           </div>
-        </form>`);
-      document.getElementById('open-beta-invite').onclick = () => Beta.openInvitation(id);
+        </form>`, 'wide beta-email-composer');
+      const message = document.getElementById('beta-invite-draft');
+      const fitMessage = () => {message.style.height='auto';message.style.height=message.scrollHeight+'px';};
+      fitMessage();
+      message.addEventListener('input', fitMessage);
+      message.addEventListener('input', () => message.setCustomValidity(''));
+      document.getElementById('beta-invite-subject').oninput = event => event.target.setCustomValidity('');
       document.getElementById('beta-invitation-form').onsubmit = event => {
         event.preventDefault();
         const fields = event.currentTarget.elements;
+        for (const field of [fields.subject, fields.body]) field.setCustomValidity(field.value.trim() ? '' : 'Enter visible text.');
+        if (!event.currentTarget.reportValidity()) return;
         project.customerEmail = {to:fields.to.value, subject:fields.subject.value, body:fields.body.value, sentAt:new Date().toISOString()};
         A.save();
         A.toast('Customer invitation added to the simulated outbox');
@@ -281,7 +323,8 @@ ${projectManager(project, state)?.name || 'Project manager'} · Pre-Shipment`
           <div class="grid-2"><div class="field"><label for="planner-task-due">Due date</label><input id="planner-task-due" name="due" type="date" value="${esc(draft.due)}"></div>
           <div class="field"><label for="planner-task-priority">Priority</label><select id="planner-task-priority" name="priority">${['high','normal','low'].map(priority => `<option value="${priority}"${draft.priority === priority ? ' selected' : ''}>${capitalize(priority)}</option>`).join('')}</select></div></div>
           <div class="field"><label for="planner-task-status">Status</label><select id="planner-task-status" name="status">${Object.entries({today:'My day',planned:'Planned',done:'Completed'}).map(([value,label]) => `<option value="${value}"${draft.status === value ? ' selected' : ''}>${label}</option>`).join('')}</select></div>
-        </div><div class="modal-footer">${task ? '<button type="button" class="btn" id="planner-delete-task">Delete task</button>' : ''}<span class="spacer"></span><button type="button" class="btn" onclick="A.closeModal()">Cancel</button><button class="btn primary">Save task</button></div></form>`);
+        </div><div class="modal-footer">${task ? '<button type="button" class="btn" id="planner-delete-task">Delete task</button>' : ''}<span class="spacer"></span><button type="button" class="btn" onclick="A.closeModal()">Cancel</button><button class="btn primary">Save task</button></div></form>`, 'planner-task-dialog');
+      fitPlannerDialog();
       document.getElementById('planner-task-form').onsubmit = event => {
         event.preventDefault();
         const fields = event.currentTarget.elements;
@@ -359,7 +402,7 @@ ${projectManager(project, state)?.name || 'Project manager'} · Pre-Shipment`
       A.refreshWorkspace();
       const workspace = state;
       const project = workspace.projects.find(item => item.id === betaSession.projectId);
-      if (!project || UatWorkflow.stage(project) !== 'customer') {
+      if (!project || !customerAvailable(project)) {
         status.textContent = 'Customer acceptance is paused while this project returns to UAT. Your notes are saved in this session. Try again after the manager reopens customer acceptance.';
         return;
       }
@@ -391,7 +434,7 @@ ${projectManager(project, state)?.name || 'Project manager'} · Pre-Shipment`
         });
       }
       try {
-        A.save();
+        if(A.save()===false)return;
       } catch {
         status.textContent = 'Your feedback could not be saved. Your notes are still in this session. Try again.';
         return;
@@ -464,7 +507,7 @@ ${projectManager(project, state)?.name || 'Project manager'} · Pre-Shipment`
       <main class="customer-page">
         <div class="customer-hero"><div><div class="eyebrow">YOUR BETA SESSION</div><h1>${esc(p.name)}</h1>
           <p>Explore ${esc(p.version)} and collect notes for your project manager.</p></div>${A.badge('Beta environment ready','green')}</div>
-        <div class="customer-layout beta-workspace-layout"><section class="beta-app-area" aria-label="Beta application">${plannerApp(p)}</section>${betaFeedbackPanel()}</div>
+        ${p.uat?.earlyBeta?.unfinished ? '<div class="warning-box beta-session-warning" role="status"><strong>Early beta · UAT unfinished</strong><p>Testing and fixes are still in progress. Share any problems with the manager in your session notes.</p></div>' : ''}<div class="customer-layout beta-workspace-layout"><section class="beta-app-area" aria-label="Beta application">${plannerApp(p)}</section>${betaFeedbackPanel()}</div>
       </main></div></section>`;
   }
 
@@ -473,7 +516,7 @@ ${projectManager(project, state)?.name || 'Project manager'} · Pre-Shipment`
     const today = new Date().toISOString().slice(0,10);
     betaSession.planner = {
       view:'all', mode:'list', query:'', priority:'all', minimized:false, maximized:false, closed:false,
-      tasks:[
+      tasks:state.cleanWorkspace?[]:[
         {id:'task-1',title:'Plan the product launch',notes:'Review the checklist and agree on the next milestone.',due:today,priority:'high',status:'today'},
         {id:'task-2',title:'Book a team catch-up',notes:'Find a time that works for design and development.',due:today,priority:'normal',status:'today'},
         {id:'task-3',title:'Explore the new dashboard',notes:'Try the list and board views, then share your feedback.',due:'',priority:'normal',status:'planned'},
@@ -482,6 +525,35 @@ ${projectManager(project, state)?.name || 'Project manager'} · Pre-Shipment`
       ]
     };
     saveBetaSession();
+  }
+
+  function fitPlannerDialog() {
+    const dialog=document.querySelector('.planner-task-dialog');
+    const planner=document.querySelector('.planner-window');
+    if(!dialog||!planner)return;
+    const overlay=dialog.closest('.modal-overlay');
+    overlay.classList.add('planner-dialog-overlay');
+    const fit=()=>{
+      const bounds=planner.getBoundingClientRect();
+      const left=Math.max(4,bounds.left);
+      const top=Math.max(4,bounds.top);
+      const width=Math.max(0,Math.min(innerWidth-4,bounds.right)-left);
+      const height=Math.max(0,Math.min(innerHeight-4,bounds.bottom)-top);
+      overlay.style.inset='auto';
+      Object.assign(overlay.style,{left:left+'px',top:top+'px',width:width+'px',height:height+'px'});
+      dialog.style.width=Math.min(560,Math.max(0,width-16))+'px';
+      dialog.style.height=Math.min(600,Math.max(0,height-16))+'px';
+      dialog.style.maxHeight=Math.max(0,height-16)+'px';
+      dialog.style.maxWidth=Math.max(0,width-16)+'px';
+    };
+    fit();
+    window.addEventListener('resize',fit);
+    const observer=new MutationObserver(()=>{
+      if(dialog.isConnected)return;
+      window.removeEventListener('resize',fit);
+      observer.disconnect();
+    });
+    observer.observe(document.getElementById('modal-root'),{childList:true});
   }
 
   function plannerArg(value) {
@@ -588,12 +660,10 @@ ${projectManager(project, state)?.name || 'Project manager'} · Pre-Shipment`
   }
 
   function renderEmbeddedWaiting(project) {
-    const stage=UatWorkflow.stage(project);
-    app.innerHTML=`<section class="app-window"><main id="beta-embedded-waiting" class="beta-setup">
-      <div class="card beta-setup-card"><span class="beta-setup-icon">${icon('clock',28)}</span>
-        <div class="eyebrow">CUSTOMER ACCEPTANCE</div><h1>${esc(project?.name||'Select a project')}</h1>
-        <p>The customer beta will open here after the manager sends this project to Customer Acceptance Stage.</p>
-        <div class="info-box">${icon('shield-check',18)}<span>${stage==='awaiting'?'Waiting for UAT to start.':'Internal UAT and manager approval are in progress.'}</span></div>
+    const ready=project&&customerAvailable(project);
+    app.innerHTML=`<section class="app-window"><main id="beta-embedded-waiting" data-ready="${ready}" class="beta-setup">
+      <div class="beta-entry-panel">
+      ${ready?Beta.keyForm(project.id):`<div class="eyebrow">CUSTOMER BETA ACCESS</div><h1>Open Your Beta Version</h1><p>${esc(project?.name||'Select a project')} · The manager must finish UAT and approve customer access first.</p><label class="field"><span>Beta access key</span><input disabled placeholder="Available after manager approval"></label><button class="btn primary" disabled>Open ${esc(project?.name||'beta')}</button>`}
       </div></main></section>`;
   }
 
@@ -603,8 +673,12 @@ ${projectManager(project, state)?.name || 'Project manager'} · Pre-Shipment`
     if (requestedSession) {
       const saved = JSON.parse(sessionStorage.getItem(betaSessionKey));
       const project = state.projects.find(item => item.id === saved?.projectId);
-      if (saved?.id === requestedSession && UatWorkflow.stage(project) === 'customer') {
+      if (saved?.id === requestedSession && customerAvailable(project)) {
         window.opener = null;
+        if(awaitingHomeEntry){
+          renderLogin('beta',project.id);
+          return;
+        }
         betaSession = saved;
         if (saved.stage === 'finished') renderBetaConfirmation();
         else if (saved.stage === 'active') renderBetaApp();

@@ -43,7 +43,7 @@ const {launchBrowser, BASE_URL, RESULTS_DIR} = require('./support.cjs');
   async function openTests(){
    await overview(tester);
    await tester.locator('#uat-active-heading').locator('..').getByRole('button',{name:/Project 10/}).click();
-   await tester.locator('#uat-test-queue-list button').first().waitFor();
+   await tester.locator('#uat-test-queue-list [data-case-index]').first().waitFor();
   }
   async function sendCustomer(){
    await focus('manager');
@@ -55,21 +55,20 @@ const {launchBrowser, BASE_URL, RESULTS_DIR} = require('./support.cjs');
   }
   await focus('manager');
   await manager.getByRole('button',{name:'Generate UAT scenarios ready for the tester',exact:true}).click();
-  await manager.getByRole('heading',{name:'Missing or unclear requirements'}).waitFor();
+  await manager.locator('input[name=title-0]').waitFor();
   await manager.getByRole('button',{name:'Approve project and start UAT testing',exact:true}).click();
   await manager.getByRole('heading',{name:/Active testing projects/}).waitFor();
   await focus('developer');await accept(developer);
   await focus('tester');await accept(tester);await openTests();
-  const queue=tester.locator('#uat-test-queue-list button');
+  const queue=tester.locator('#uat-test-queue-list [data-case-index]');
   assert.equal(await queue.count(),8);
   for(let index=0;index<8;index++){
    await queue.nth(index).click();
    await tester.getByRole('button',{name:'Pass',exact:true}).click();
   }
   await sendCustomer();
-  const invitationEvent=page.waitForEvent('popup');
-  await manager.getByRole('button',{name:'Open invitation',exact:true}).click();
-  const invitation=await invitationEvent;
+  const invitation=await context.newPage();
+  await invitation.goto(await manager.getByLabel('Beta invitation link',{exact:true}).inputValue());
   assert.ok(await invitation.getByLabel('Beta access key',{exact:true}).inputValue());
   const popupEvent=invitation.waitForEvent('popup');
   await invitation.getByRole('button',{name:'Open Project 10',exact:true}).click();
@@ -112,7 +111,7 @@ const {launchBrowser, BASE_URL, RESULTS_DIR} = require('./support.cjs');
   console.log('PASS: exploratory regression reopens UAT; embedded customer waits and stale popup submission blocks without losing notes');
   await focus('tester');
   await openTests();
-  await tester.locator('#uat-test-queue-list button').filter({hasText:'Retest · Post-acceptance regression'}).click();
+  await tester.locator('#uat-test-queue-list [data-case-index]').filter({hasText:'Retest · Post-acceptance regression'}).click();
   await tester.getByRole('button',{name:'Pass',exact:true}).click();
   await focus('manager');
   await manager.getByRole('button',{name:'Close dialog',exact:true}).click();
@@ -121,10 +120,14 @@ const {launchBrowser, BASE_URL, RESULTS_DIR} = require('./support.cjs');
   await review.getByRole('button',{name:'Review',exact:true}).click();
   await manager.getByRole('button',{name:'Approve fix',exact:true}).click();
   await sendCustomer();
-  await customer.getByRole('button',{name:'New task',exact:true,includeHidden:true}).waitFor({state:'attached'});
+  await focus('customer');
+  if(await customer.getByRole('button',{name:'Open Project 10',exact:true}).count())await customer.getByRole('button',{name:'Open Project 10',exact:true}).click();
+  await customer.getByRole('button',{name:'New task',exact:true}).waitFor();
   await beta.getByRole('button',{name:'Send Feedback & Finish',exact:true}).click();
   await beta.getByText('Your note was sent to the project manager.',{exact:true}).waitFor();
   await beta.reload();
+  await beta.getByRole('heading',{name:'Open Your Beta Version',exact:true}).waitFor();
+  await beta.getByRole('button',{name:'Open Project 10',exact:true}).click();
   await beta.getByText('Your note was sent to the project manager.',{exact:true}).waitFor();
   await manager.waitForFunction(()=>A.state.betaFeedback.some(batch=>batch.projectId==='p10'));
   assert.equal(await manager.evaluate(()=>A.state.betaFeedback.filter(batch=>batch.projectId==='p10').length),1);

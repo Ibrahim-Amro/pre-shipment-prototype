@@ -324,3 +324,39 @@
 .uat-project-team-disclosure .ws-project-roster ul {
   margin-top: 0;
 }
+
+/* Keep selection and the one-click pass action as separate accessible buttons. */
+body .uat-tester-modal .uat-test-queue .uat-queue-row {
+  position: relative;
+  min-width: 0;
+}
+body .uat-tester-modal .uat-test-queue .uat-queue-row:has(.uat-quick-pass) .uat-case-select {
+  padding-inline-end: 52px;
+}
+body .uat-tester-modal .uat-test-queue button.uat-quick-pass {
+  position: absolute;
+  inset-inline-end: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: 1px solid #13936a;
+  border-radius: 6px;
+  color: #fff;
+  background: #169b70;
+}
+body .uat-tester-modal .uat-test-queue button.uat-quick-pass:hover:not(:disabled) {
+  background: #107a57;
+}
+body .uat-tester-modal .uat-test-queue button.uat-quick-pass:disabled {
+  opacity: 1;
+  background: #e4f6ee;
+  border-color: #b9e4d1;
+  color: #167c59;
+  cursor: default;
+}

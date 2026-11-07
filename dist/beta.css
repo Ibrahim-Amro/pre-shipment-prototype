@@ -320,6 +320,47 @@
   min-width: 0;
 }
 
+/* The invitation is a full-pane composer with one outer message scroll area. */
+body .modal-content.beta-email-composer {
+  width: min(1120px, calc(100vw - 24px));
+  height: calc(100dvh - 24px);
+  max-height: calc(100dvh - 24px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+body .beta-email-composer > .modal-header { flex: none; }
+body .beta-email-composer #beta-invitation-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+body .beta-email-composer .modal-body { flex: 1; min-height: 0; overflow: auto; }
+body .beta-email-composer .modal-footer { flex: none; justify-content: space-between; }
+body .beta-email-composer #beta-invite-draft {
+  width: 100%;
+  min-height: 280px;
+  overflow: hidden;
+  resize: none;
+  line-height: 1.7;
+  background: var(--surface-2);
+}
+
+/* Task editors stay inside the visible simulated application, including in a quarter. */
+body .planner-dialog-overlay { padding: 8px; backdrop-filter: blur(2px); overflow: hidden; }
+body .modal-content.planner-task-dialog {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 10px;
+}
+body .planner-task-dialog .modal-header { flex: none; padding: 12px 16px; }
+body .planner-task-dialog #planner-task-form { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+body .planner-task-dialog .modal-body { flex: 1; min-height: 0; overflow: auto; padding: 14px 16px; }
+body .planner-task-dialog .modal-footer { flex: none; padding: 10px 16px; }
+body .planner-task-dialog .field { margin-bottom: 12px; }
+
 .planner-desktop {
   --planner-text: #23304b;
   --planner-muted: #76819a;

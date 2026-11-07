@@ -159,15 +159,39 @@
       !workspace().issues.some(issue => issue.projectId === project.id && issue.status !== 'Resolved'));
   };
 
-  workflow.sendToCustomer = function (projectId) {
+  workflow.customerAvailable = project => Boolean(project && (workflow.stage(project)==='customer' || project.uat?.earlyBeta?.enabled));
+
+  workflow.insights = function (project, employeeId = workspace().role==='developer' ? workspace().user.id : undefined) {
+    const cases=(project?.uat?.cases||[]).filter(test=>test.status!=='draft');
+    const issues=workspace().issues.filter(issue=>issue.projectId===project?.id && (!employeeId || issue.assignee===employeeId));
+    const actionable=issues.filter(issue=>['Open','In progress','Reopened'].includes(issue.status));
+    const submitted=issues.filter(issue=>['Awaiting retest','In review','Resolved'].includes(issue.status));
+    const passed=cases.filter(test=>test.status==='pass').length;
+    const label=actionable.length ? `${actionable.length} ${actionable.length===1?'bug is':'bugs are'} waiting to be fixed`
+      : issues.some(issue=>issue.status==='Awaiting retest') ? 'Waiting for retest'
+      : issues.some(issue=>issue.status==='In review') ? 'Waiting for manager approval'
+      : issues.length ? 'All reported bugs fixed' : 'Waiting for testers to identify bugs';
+    return {developerPercent:issues.length?Math.round(submitted.length/issues.length*100):0,
+      testingPercent:cases.length?Math.round(passed/cases.length*100):0,developerLabel:label,
+      developerActionable:actionable.length,developerTotal:issues.length,developerSubmitted:submitted.length,
+      testingPassed:passed,testingTotal:cases.length};
+  };
+
+  workflow.sendToCustomer = function (projectId, options = {}) {
     const project = projectById(projectId);
     if (workspace().role !== 'manager') return false;
-    if (!workflow.canSend(project)) {
+    const early=options.early===true && options.acknowledged===true && workflow.stage(project)==='testing' && project.uat?.cases?.some(test=>test.status!=='draft');
+    if (!workflow.canSend(project) && !early) {
       A.toast('Pass every approved test and resolve all project findings before customer acceptance.','error');
       return false;
     }
     project.uat ||= {cases: []};
-    project.uat.stage = 'customer';
+    if(early){
+      project.uat.earlyBeta={enabled:true,unfinished:true,acknowledgedAt:new Date().toISOString(),managerId:workspace().user.id};
+    }else{
+      project.uat.stage = 'customer';
+      if(project.uat.earlyBeta)project.uat.earlyBeta={...project.uat.earlyBeta,enabled:false,unfinished:false};
+    }
     project.uat.customerSentAt = new Date().toISOString();
     project.updatedAt = project.uat.customerSentAt;
     Beta.prepareInvitation(project);
@@ -207,7 +231,34 @@
     };
   };
 
+  // Deterministic mock AI similarity check. Reports remain independent for retesting.
+  workflow.checkDuplicate = function (report, excludeId) {
+    const normalize = value => String(value || '').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+    const tokens = value => new Set(normalize(value).split(' ').filter(word => word.length > 2));
+    const similarity = (a,b) => {const first=tokens(a), second=tokens(b);return first.size&&second.size?[...first].filter(word=>second.has(word)).length/new Set([...first,...second]).size:0;};
+    let best;
+    for(const existing of workspace().issues.filter(item=>item.projectId===report.projectId&&item.id!==excludeId&&!item.duplicateOf)) {
+      const title=similarity(report.title,existing.title);
+      const actual=similarity(report.actual||report.description,existing.actual||existing.description);
+      const exact=normalize(report.title)===normalize(existing.title)&&normalize(report.title).length>5;
+      const score=exact?Math.max(.85,actual):title*.45+actual*.55;
+      if((exact||title>=.45&&actual>=.65)&&score>=.65&&(!best||score>best.score))best={existing,score};
+    }
+    return best?{duplicateOf:best.existing.id,confidence:Math.round(best.score*100),summary:'Similar title and observed behavior match an existing report in this project. Compare the reproduction steps and evidence before confirming the duplicate.',originalTitle:best.existing.title,originalStatus:best.existing.status,method:'Mock AI similarity analysis'}:null;
+  };
+  workflow.tagDuplicate = function (report) {
+    const analysis=workflow.checkDuplicate(report,report.id);
+    if(analysis){report.duplicateOf=analysis.duplicateOf;report.duplicateAnalysis=analysis;}
+    return analysis;
+  };
+  workflow.duplicateSummary = function (report) {
+    const analysis=report.duplicateAnalysis;
+    if(!analysis)return '';
+    return `<section class="info-box" aria-label="AI duplicate analysis"><div><strong>Potential duplicate · ${A.escape(analysis.confidence)}% similarity</strong><p>${A.escape(analysis.summary)}</p><p>Original report: <button class="btn small" onclick="Workspaces.issueDetails(${A.escape(JSON.stringify(analysis.duplicateOf))})">${A.escape(analysis.duplicateOf)} · ${A.escape(analysis.originalTitle)}</button></p><small>Mock AI analysis · Review required. Both reports retain their own evidence, test results and approvals.</small></div></section>`;
+  };
+
   workflow.recordOutcome = function (projectId, caseId, status, details = {}) {
+    A.refreshWorkspace?.();
     const project = projectById(projectId);
     const test = workflow.casesForProject(projectId).find(item => item.id === caseId);
     if (!test || workflow.stage(project) !== 'testing' ||
@@ -241,12 +292,15 @@
           severity:'High', status:'Open', category:'User acceptance testing',
           deadline:project.deadline, source:'UAT test case', testData:test.testData, createdAt:now
         };
+        issue.reportedById=workspace().user.id;
+        issue.reportedBy=workspace().user.name;
+        workflow.tagDuplicate(issue);
         workspace().issues.unshift(issue);
         test.bugId = issue.id;
         project.bugs = (Number(project.bugs) || 0) + 1;
       }
       const developer = employeeForRole(issue.assignee, 'developer');
-      notify(issue.status === 'Reopened' ? 'UAT bug reopened' : 'UAT bug reported',
+      notify(issue.duplicateOf ? 'Potential duplicate UAT bug reported' : issue.status === 'Reopened' ? 'UAT bug reopened' : 'UAT bug reported',
         `${project.name} · ${issue.title}`, developer?.id || projectManager(project),
         developer ? 'developer' : 'manager', 'issues');
     } else if (status === 'pass' && issue?.status === 'Awaiting retest') {
@@ -344,8 +398,6 @@
     issue.approvedBy = workspace().user.id;
     project.bugs = Math.max(0, (Number(project.bugs) || 0) - 1);
     if (issue.severity === 'Critical') project.critical = Math.max(0, (Number(project.critical) || 0) - 1);
-    project.progress = Math.min(99, (Number(project.progress) || 0) + 4);
-    project.readiness = Math.min(100, (Number(project.readiness) || 0) + 4);
     project.updatedAt = issue.resolvedAt;
     notify('Verified fix approved', `${project.name} · ${issue.title}`, issue.assignee, 'developer', 'issues');
     if (workflow.canSend(project)) {

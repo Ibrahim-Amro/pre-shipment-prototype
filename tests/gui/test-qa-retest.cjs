@@ -92,8 +92,8 @@ const {launchBrowser, BASE_URL, RESULTS_DIR} = require('./support.cjs');
    await tester.getByText(build,{exact:true}).waitFor({state:'attached'});
   }
   await focus('tester');await accept(tester,'Project 1');await openProject(tester);
-  assert.equal(await tester.locator('#uat-test-queue-list button').count(),7);
-  assert.deepEqual(await tester.evaluate(()=>UatWorkflow.casesForProject('p1').map(t=>t.id)),await tester.locator('#uat-test-queue-list button').evaluateAll(nodes=>nodes.map((n,i)=>'demo-p1-case-'+(i+1))));
+  assert.equal(await tester.locator('#uat-test-queue-list [data-case-index]').count(),7);
+  assert.deepEqual(await tester.evaluate(()=>UatWorkflow.casesForProject('p1').map(t=>t.id)),await tester.locator('#uat-test-queue-list [data-case-index]').evaluateAll(nodes=>nodes.map((n,i)=>'demo-p1-case-'+(i+1))));
   await tester.getByText('View code snippet',{exact:false}).click();
   await tester.locator('.uat-case-code code').getByText('function createTask',{exact:false}).waitFor();
   await tester.getByRole('button',{name:'Blocked',exact:true}).click();

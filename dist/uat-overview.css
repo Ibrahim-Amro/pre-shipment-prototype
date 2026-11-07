@@ -398,3 +398,91 @@
     grid-column: 1 / -1;
   }
 }
+
+/* Project identities and their descriptive names share a readable scale. */
+body .uat-project-row .uat-project-mark,
+body .uat-project-row .uat-project-info > strong,
+body .uat-project-row .uat-project-description {
+  font-size: 22px;
+  line-height: 1.35;
+}
+
+body .uat-project-row .uat-project-mark {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+body .uat-project-description {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.uat-project-current-status {
+  display: block;
+  margin-block: 5px;
+  color: var(--blue);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+body .uat-project-row .uat-project-status {
+  gap: 8px;
+  min-width: 190px;
+}
+
+.uat-project-progress-group {
+  display: grid;
+  gap: 5px;
+  width: 190px;
+}
+
+.uat-project-progress-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+body .uat-project-row .uat-project-progress {
+  width: 100%;
+}
+
+.uat-project-progress .uat-project-meter {
+  height: 6px;
+}
+
+.uat-project-testing-detail {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: end;
+}
+
+@container uat-main (max-width: 650px) {
+  body .uat-project-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  body .uat-project-row .uat-project-status {
+    grid-column: 2 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    min-width: 0;
+    width: 100%;
+    gap: 10px 14px;
+  }
+  .uat-project-progress-group {
+    width: min(220px, 100%);
+  }
+  .uat-project-testing-detail {
+    text-align: start;
+  }
+  .uat-project-open {
+    grid-column: 3;
+    grid-row: 1;
+  }
+}
