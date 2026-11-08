@@ -24,7 +24,7 @@
   }
 
   function action(label, symbol, handler, style = 'secondary') {
-    return `<button class="btn ${style}" type="button" onclick="${handler}">${icon(symbol,16)}${label}</button>`;
+    return `<button class="btn ${style}" type="button" onclick="${handler}">${icon(symbol,16)}${escape(label)}</button>`;
   }
 
   function assignmentNotice(pending) {
@@ -100,6 +100,31 @@
     </section>`;
   }
 
+  function retestSection() {
+    if (state().role !== 'tester') return '';
+    const personal = UatWorkflow.retestsForTester();
+    const others = state().employees.filter(person => person.role === 'tester' && person.id !== state().user.id)
+      .flatMap(person => UatWorkflow.retestsForTester(person.id)
+        .filter(task => task.project.team.includes(state().user.id)).map(task => ({...task,person})));
+    const target = task => escape(JSON.stringify(task.project.id)) + ',' + escape(JSON.stringify(task.test.id));
+    const ready = personal.length ? `<section class="uat-project-section" aria-label="Fixes ready for your retest">
+      <h2>Ready to retest <span class="count-bubble">${personal.length}</span></h2>
+      <p class="muted">Development submitted a new build. Repeat the original case before manager approval.</p>
+      <ul class="uat-retest-list">${personal.map(task => `<li class="card uat-retest-row">
+        <div><strong>${escape(task.project.name)} · ${escape(task.test.title)}</strong>
+        <p>${escape(task.issue.id)} · Build ${escape(task.test.buildVersion)}${task.test.status === 'blocked' ? ' · Retest blocked' : ''}</p></div>
+        ${action(task.test.status === 'blocked' ? 'Continue retest' : 'Start retest','refresh-cw',`UatTester.startRetest(${target(task)})`,'primary')}
+      </li>`).join('')}</ul></section>` : '';
+    const assigned = others.length ? `<section class="uat-project-section" aria-label="Retests assigned to other testers">
+      <h2>Retests assigned to another tester</h2>
+      <ul class="uat-retest-list">${others.map(task => `<li class="card uat-retest-row">
+        <div><strong>${escape(task.project.name)} · ${escape(task.test.title)}</strong>
+        <p>Build ${escape(task.test.buildVersion)} · Assigned to ${escape(task.person.name)}</p></div>
+        ${action('Open as '+task.person.name,'user',`UatTester.switchToRetest(${target(task)})`)}
+      </li>`).join('')}</ul></section>` : '';
+    return ready + assigned;
+  }
+
   overview.render = function () {
     const data = dashboardData();
     const role = state().role;
@@ -115,6 +140,7 @@
         <div class="uat-overview-actions">${actions}</div>
       </header>
       ${assignmentNotice(data.pending)}
+      ${retestSection()}
       ${projectSection('active','Active projects',data.active,data,'No active projects yet.')}
       ${projectSection('completed','Finished projects',data.completed,data,'Completed projects will appear here.')}
     </div>`;

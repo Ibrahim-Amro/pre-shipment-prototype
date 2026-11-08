@@ -217,7 +217,14 @@ const A=window.A={state,icon,escape:esc,
  searchGlobal(value){if(!value.trim()){document.getElementById('global-results')?.remove();return;}const q=value.trim().toLowerCase();const scope=Workspaces.overviewData();const ps=scope.projects.filter(p=>p.name.toLowerCase().includes(q)).sort(ProjectPriority.compare);const issues=scope.issues.filter(i=>i.title.toLowerCase().includes(q));let el=document.getElementById('global-results');if(!el){el=document.createElement('div');el.id='global-results';el.className='dropdown';document.querySelector('.global-search').appendChild(el);}el.innerHTML=`<div class="dropdown-header"><strong>Search results</strong><small>${ps.length+issues.length} results in your workspace</small></div>${ps.map(p=>`<button onclick="A.clearSearch();A.openProject('${p.id}')">${icon('folder',15)}${esc(p.name)}<span class="spacer"></span>${ProjectPriority.badge(p)}</button>`).join('')}${issues.map(i=>`<button onclick="A.clearSearch();A.openIssue('${i.id}')">${icon('bug',15)}<span>${esc(i.title)}</span></button>`).join('')}${!ps.length&&!issues.length?'<p class="muted" style="padding:12px">No results. Try a project name or finding title.</p>':''}`;A.positionSearch();},
  positionSearch(){const box=document.querySelector('.global-search'),results=document.getElementById('global-results');if(!results||!box)return;const bounds=box.getBoundingClientRect(),width=Math.min(370,innerWidth-20);Object.assign(results.style,{width:width+'px',left:(Math.max(10,Math.min(bounds.left,innerWidth-width-10))-bounds.left)+'px',right:'auto',top:'calc(100% + 6px)',maxHeight:Math.max(80,Math.min(400,innerHeight-bounds.bottom-18))+'px',overflow:'auto'});},
  clearSearch(){document.getElementById('global-results')?.remove();const s=document.getElementById('global-input');if(s)s.value='';},
- markRead(id){const n=A.visibleNotifications().find(n=>n.id===id);if(n){n.read=true;A.save();A.navigate(n.page||'dashboard');}},
+ markRead(id){
+  const n=A.visibleNotifications().find(notice=>notice.id===id);
+  if(!n)return;
+  n.read=true;A.save();A.navigate(n.page||'dashboard');
+  if(state.role==='tester'&&n.projectId&&n.caseId&&UatWorkflow.retestsForTester().some(task=>task.project.id===n.projectId&&task.test.id===n.caseId)){
+   UatTester.startRetest(n.projectId,n.caseId);
+  }
+ },
  markAllRead(){A.visibleNotifications().forEach(n=>n.read=true);A.save();A.render();A.toast('You’re all caught up');},
  notificationPrefs(e){localStorage.setItem('pre-shipment-alerts',e.checked?'on':'off');A.refreshNotifications();window.FourView?.onWorkspaceSync?.();A.toast(e.checked?'Unread badges enabled':'Unread badges hidden. Messages stay in your inbox.');},
  editProfile(){A.modal(`<div class="modal-header"><h2>Edit profile</h2><button class="icon-btn" onclick="A.closeModal()">${icon('x')}</button></div><form onsubmit="A.saveProfile(event)"><div class="modal-body"><div class="person-edit-header">${A.person(state.user)}</div><div class="field"><label for="profile-name">Full name</label><input id="profile-name" maxlength="80" value="${esc(state.user.name)}" required></div><div class="field"><label for="profile-title">Job title</label><input id="profile-title" maxlength="80" value="${esc(state.user.title)}" required></div></div><div class="modal-footer"><button type="button" class="btn" onclick="A.closeModal()">Cancel</button><button class="btn primary">Save changes</button></div></form>`,'');},
@@ -378,6 +385,7 @@ A.openWorkspace=(role,employeeId,projectId)=>{
  const employee=state.employees.find(person=>person.id===employeeId&&person.role===role)||member||demoEmployee(role);
  if(!employee||!['manager','developer','tester'].includes(role))return false;
  state.role=role;state.user=employee;state.page='dashboard';loggedIn=true;dropdown=false;
+ rememberActor();
  A.render();
  if(project&&!navigationReload&&launchParams.get('home')!=='1'){
   if(role==='manager')UatManager.openProject(project.id);
@@ -418,7 +426,8 @@ for(const project of state.projects){
  }
 }
 const restoredReviews=UatWorkflow.restoreReviewQueues();
-if(demoUpdated||testerAdded||restoredInvitations||restoredReviews)A.save();
+const restoredRetests=UatWorkflow.restoreRetestQueues();
+if(demoUpdated||testerAdded||restoredInvitations||restoredReviews||restoredRetests)A.save();
 window.OwnerFlow.open=()=>UatManager.newProject();
 
 window.initBeta({A,app,state,icon,esc,brand,titlebar,closeBtn,capitalize,renderLogin,showSplash,readWorkspace});

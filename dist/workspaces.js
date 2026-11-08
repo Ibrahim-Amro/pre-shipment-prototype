@@ -329,7 +329,9 @@
   }
   W.issueDetails = function(id) {
     const i=issue(id);if(!i)return;const p=project(i.projectId), e=employee(i.assignee);
-    const footer=canFix(i)?btn('Apply a fix','fixIssue',i.id,'primary','code')
+    const retest=role()==='tester'&&UatWorkflow.retestsForTester().some(task=>task.issue.id===i.id);
+    const footer=retest?`<button type="button" class="btn primary" onclick="UatTester.startRetest(${js(i.projectId)},${js(i.uatCaseId)})">${ico('refresh-cw',16)} Start retest</button>`
+      :canFix(i)?btn('Apply a fix','fixIssue',i.id,'primary','code')
       :role()==='manager'&&UatWorkflow.canReview(i)?btn('Review proposed fix','reviewFix',i.id,'primary','check-circle')
       :canAssignFinding(i)?btn('Assign finding','assignFinding',i.id,'primary','users')
       :btn('Back to project','openProject',i.projectId,'primary','arrow-left');
@@ -413,7 +415,11 @@
       return;
     }
     delete ui.fixes[id];
-    app().closeModal();refresh();app().toast('Fix submitted. Its test is ready for retest.','success');
+    const assignedTester=employee(testCaseFor(i)?.assigneeId);
+    app().closeModal();refresh();app().toast(`Fix submitted. ${assignedTester?.name || 'The assigned tester'} has the retest.`,'success');
+    if (window.parent !== window && document.body.classList.contains('four-view-child')) {
+      window.parent.FourView?.openRetest(i.projectId,i.uatCaseId,{automatic:true});
+    }
   };
   W.reviewFix = function(id) {
     const i=issue(id);if(!i||!UatWorkflow.canReview(i))return;const f=i.fix||{},e=employee(i.assignee);

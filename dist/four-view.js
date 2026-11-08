@@ -18,6 +18,7 @@
   let previousAppState;
   let homeOnLaunch=false;
   let controlsInitialized=false;
+  let retestRequest=0;
   const viewStorageKey='pre-shipment-four-view';
   function rememberView(){if(shell)sessionStorage.setItem(viewStorageKey,JSON.stringify({open:!shell.hidden,projectId,customerProjectId,lastInvitation,people}));}
   const people = {};
@@ -374,6 +375,32 @@
 
   view.refreshPanel = function (role) {
     if (shell && roles.includes(role)) refreshPanel(role);
+  };
+
+  view.openRetest = function (targetProjectId, caseId, {automatic=false} = {}) {
+    if (!shell || shell.hidden || !app().refreshWorkspace()) return false;
+    const project = state().projects.find(item => item.id === targetProjectId);
+    const test = project?.uat?.cases?.find(item => item.id === caseId);
+    if (!test || !window.UatWorkflow.retestsForTester(test.assigneeId).some(task => task.project.id === targetProjectId && task.test.id === caseId)) return false;
+    const frame = shell.querySelector('iframe[data-role="tester"]');
+    if (automatic && frame.contentDocument?.querySelector('.modal-content form')) return false;
+    const request=++retestRequest;
+    const testerId=test.assigneeId;
+    people.tester = test.assigneeId;
+    manualPeople.add('tester');
+    shell.querySelector('[data-person-role="tester"]').value = people.tester;
+    const open = () => {
+      const childApp = panelApp('tester');
+      if (!childApp || request!==retestRequest || childApp.state.user.id!==testerId) return;
+      childApp.refreshWorkspace();
+      childApp.openProject(targetProjectId,caseId);
+      refreshPanel('tester');
+    };
+    if (frame.getAttribute('src') === frameUrl('tester') && frame.contentDocument?.readyState === 'complete' && frame.contentWindow.location.href === frameUrl('tester') && panelApp('tester')) open();
+    else { frame.addEventListener('load',open,{once:true}); loadFrame('tester'); }
+    if (compactScreen.matches && !automatic) { compactRole='tester'; syncPanelLayout(); }
+    rememberView();
+    return true;
   };
 
   view.mount = function () {

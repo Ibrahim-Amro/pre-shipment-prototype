@@ -487,3 +487,10 @@ body .uat-project-row .uat-project-progress {
     grid-row: 1;
   }
 }
+/* Fix handoffs stay visible before the project portfolio. */
+.uat-retest-list {display:grid;gap:10px;list-style:none;margin:12px 0 0;padding:0}
+.uat-retest-row {display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px;flex-wrap:wrap}
+.uat-retest-row>div {flex:1 1 220px;min-width:0}
+.uat-retest-row strong {font-size:15px;overflow-wrap:anywhere}
+.uat-retest-row p {font-size:14px;color:var(--muted);margin:5px 0 0}
+.uat-retest-row .btn {flex-shrink:0}

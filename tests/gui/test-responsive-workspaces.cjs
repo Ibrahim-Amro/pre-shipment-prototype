@@ -68,7 +68,7 @@ const {launchBrowser, BASE_URL, RESULTS_DIR} = require('./support.cjs');
     await developer.locator('[data-page=settings].active').waitFor({state: 'attached'});
     await shell.locator('[data-show-role=manager]').click();
     await shell.locator('#four-project').selectOption('');
-    await page.waitForFunction(() => [...document.querySelectorAll('iframe')].every(frame =>
+    await page.waitForFunction(() => [...document.querySelectorAll('iframe:not([data-role=customer])')].every(frame =>
       frame.contentWindow.A && !new URL(frame.contentWindow.location.href).searchParams.has('project')));
     await page.frameLocator('iframe[data-role=manager]').getByRole('button', {name: 'New project', exact: true}).waitFor();
     await page.screenshot({path: path.join(RESULTS_DIR, 'phone-four-workspaces.png'), animations: 'disabled'});

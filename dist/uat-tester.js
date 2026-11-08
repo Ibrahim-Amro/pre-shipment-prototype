@@ -24,20 +24,47 @@
     return app().state.projects.find(project => project.id === projectId);
   }
 
+  tester.startRetest = function (projectId, caseId) {
+    if (app().state.role !== 'tester' || !app().refreshWorkspace()) return;
+    const task = UatWorkflow.retestsForTester().find(item => item.project.id === projectId && item.test.id === caseId);
+    if (!task) { app().toast('This retest changed. Open the current tester queue.','error'); app().render(); return; }
+    Workspaces.openProject(projectId,caseId);
+  };
+
+  tester.switchToRetest = function (projectId, caseId) {
+    if (app().state.role !== 'tester' || !app().refreshWorkspace()) return;
+    const project = projectById(projectId);
+    const test = project?.uat?.cases?.find(item => item.id === caseId);
+    const task = test && UatWorkflow.retestsForTester(test.assigneeId).find(item => item.test.id === caseId && item.project.id === projectId);
+    if (!task) { app().toast('This retest is no longer waiting.','error'); app().render(); return; }
+    if (document.body.classList.contains('four-view-child')) {
+      return window.parent.FourView.openRetest(projectId,caseId);
+    }
+    app().openWorkspace('tester',test.assigneeId);
+    tester.startRetest(projectId,caseId);
+  };
+
+  tester.closeProject = function () {
+    app().closeModal();
+    app().render();
+  };
+
   tester.openProject = function (projectId, caseId) {
     const project = projectById(projectId);
     if (!project || app().state.role !== 'tester' || !Workspaces.hasAcceptedProject(project.id)) return;
     const assigned = UatWorkflow.casesForProject(project.id);
     let selectedId = assigned.find(testCase => testCase.id === caseId)?.id ||
+      assigned.find(testCase => testCase.status === 'retest')?.id ||
       assigned.find(canExecute)?.id ||
       assigned[0]?.id;
 
     app().modal(`<header class="modal-header uat-tester-header">
       <div><div class="eyebrow">TESTER PROJECT</div><h2>${escape(project.name)}</h2><p>${escape(project.version || '')} · User acceptance testing</p></div>
       <div class="uat-tester-actions">
+        <button type="button" class="btn primary" id="uat-open-retest" hidden></button>
         <div class="uat-team-menu"><button type="button" class="btn uat-team-toggle" id="uat-team-toggle" aria-label="Project team" title="Project team" aria-expanded="false" aria-controls="uat-team-popover">${icon('users',22)}</button><section id="uat-team-popover" class="uat-team-popover" aria-label="Project team members" hidden><h3>Project team</h3>${Workspaces.projectTeam(project.id)}</section></div>
         <button type="button" class="btn secondary" id="uat-exploratory">${icon('bug')} Report an exploratory finding</button>
-        <button type="button" class="icon-btn" aria-label="Close test project" onclick="A.closeModal()">${icon('x', 20)}</button>
+        <button type="button" class="icon-btn" aria-label="Close test project" onclick="UatTester.closeProject()">${icon('x', 20)}</button>
       </div>
     </header>
     <div class="uat-tester-body">
@@ -78,11 +105,17 @@
     function render(focusCase = false) {
       const cases = UatWorkflow.casesForProject(project.id);
       if (!cases.some(testCase => testCase.id === selectedId)) {
-        selectedId = cases.find(canExecute)?.id || cases[0]?.id;
+        selectedId = cases.find(testCase => testCase.status === 'retest')?.id || cases.find(canExecute)?.id || cases[0]?.id;
       }
       const version = document.querySelector('.uat-tester-header h2 + p');
       if (version) version.textContent = [projectById(project.id)?.version, 'User acceptance testing'].filter(Boolean).join(' · ');
       const selected = cases.find(testCase => testCase.id === selectedId);
+      const retests = cases.filter(testCase => testCase.status === 'retest' ||
+        (testCase.status === 'blocked' && testCase.bugId && testCase.buildVersion));
+      const retestButton = document.getElementById('uat-open-retest');
+      retestButton.hidden = !retests.length;
+      retestButton.textContent = `${retests.length} ${retests.length === 1 ? 'fix' : 'fixes'} ready to retest`;
+      retestButton.onclick = () => { selectedId=retests[0].id;render(true); };
       queue.innerHTML = cases.map((testCase, index) =>
         `<li class="uat-queue-row"><button type="button" class="uat-case-select" data-case-index="${index}" aria-pressed="${selectedId === testCase.id}">
           <span class="uat-case-number">${String(index + 1).padStart(2, '0')}</span>

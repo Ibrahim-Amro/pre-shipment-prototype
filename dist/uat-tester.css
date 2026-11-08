@@ -2,6 +2,8 @@
   color: var(--text);
 }
 
+#uat-open-retest[hidden] { display: none; }
+
 .uat-tester-header p {
   margin: 4px 0 0;
   color: var(--muted);

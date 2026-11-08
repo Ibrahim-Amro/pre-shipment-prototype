@@ -1,5 +1,7 @@
 # UAT workflow verification
 
+The retest access update was checked through developer submission, automatically switching the shared demo's tester pane to the assigned tester and opening the exact case and submitted build, Blocked-to-Pass recovery, and the manager review handoff. Automatic routing preserves an unsent tester report and leaves that retest queued. The added regression also covers direct access from the tester overview, finding details and notifications, exploratory retests, and idempotent recovery of older saved retest links without changing the submitted build or history. Existing retest/revision, quick-pass, seeded demo handoff, project-order, shared-shell and responsive workspace checks passed.
+
 On 8 November 2026, all 23 Chrome browser suites passed against the saved prototype. The run covered a fresh workspace, all four roles, the complete UAT and customer handoffs, stale review dialogs, interrupted beta sessions, keyboard controls, and phone and desktop layouts. The local server also returned 400 for a malformed path and continued serving the app. See `test-results/gui/summary.json` for individual results.
 
 ## Earlier verification

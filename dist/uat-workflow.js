@@ -15,12 +15,12 @@
     workspace().employees.find(person => person.role === 'manager' && person.available !== false)?.id ||
     workspace().employees.find(person => person.role === 'manager')?.id;
 
-  function notify(title, body, employeeId, role, page) {
+  function notify(title, body, employeeId, role, page, target = {}) {
     const recipient = employeeForRole(employeeId, role);
     if (!recipient) return false;
     workspace().notifications.unshift({
       id: 'uat-notice-' + newId(), title, body, employeeId:recipient.id, role:recipient.role, page,
-      time: 'Just now', read: false, type: 'message-square'
+      time: 'Just now', read: false, type: 'message-square', ...target
     });
     return true;
   }
@@ -335,8 +335,10 @@
   };
 
   function retestCase(project, issue, fix) {
-    const existing = caseById(project, issue.uatCaseId);
-    if (existing) return existing;
+    const linked = caseById(project, issue.uatCaseId);
+    const existing = linked && (!linked.bugId || linked.bugId === issue.id) ? linked
+      : project.uat?.cases?.find(test => test.bugId === issue.id);
+    if (existing) { issue.uatCaseId = existing.id; return existing; }
     const testers = workspace().employees.filter(person => person.role === 'tester' && project.team.includes(person.id));
     const reporter = testers.find(person => person.id === issue.reportedById || person.name === issue.reportedBy);
     const tester = reporter || testers.find(person => person.available !== false) || testers[0];
@@ -367,14 +369,58 @@
     test.buildVersion = fix.buildVersion;
     project.version = fix.buildVersion;
     project.uat.stage = 'testing';
-    if (project.status === 'Completed' || Number(project.progress) >= 100) {
+    if (/complete|finished|shipped|archived/i.test(project.status) || Number(project.progress) >= 100) {
       project.status = 'In progress';
       project.progress = Math.min(99, Number(project.progress) || 0);
     }
     project.updatedAt = submittedAt;
     notify('Fix ready to retest', `${project.name} · ${test.title} · Build ${fix.buildVersion}`,
-      test.assigneeId, 'tester', 'dashboard');
+      test.assigneeId, 'tester', 'dashboard', {projectId:project.id, caseId:test.id, issueId:issue.id});
   }
+
+  workflow.retestsForTester = function (testerId = workspace().user.id) {
+    return workspace().issues.filter(issue => issue.status === 'Awaiting retest').flatMap(issue => {
+      const project = projectById(issue.projectId);
+      const test = caseById(project, issue.uatCaseId);
+      if (!project?.team?.includes(testerId) || workflow.stage(project) !== 'testing' ||
+          test?.assigneeId !== testerId || test.bugId !== issue.id ||
+          !['retest','blocked'].includes(test.status) || !issue.fix?.buildVersion ||
+          test.buildVersion !== issue.fix.buildVersion) return [];
+      return [{project, test, issue}];
+    }).sort((a,b) => ProjectPriority.compare(a.project,b.project) || a.test.title.localeCompare(b.test.title));
+  };
+
+  workflow.restoreRetestQueues = function () {
+    let changed = false;
+    for (const issue of workspace().issues) {
+      if (issue.status !== 'Awaiting retest' || !clean(issue.fix?.buildVersion)) continue;
+      const project = projectById(issue.projectId);
+      if (!project || !workspace().employees.some(person => person.role === 'tester' && project.team?.includes(person.id))) continue;
+      const before = JSON.stringify([project,issue]);
+      const test = retestCase(project, issue, issue.fix);
+      if (!test) continue;
+      if (!employeeForRole(test.assigneeId,'tester') || !project.team.includes(test.assigneeId)) {
+        const testers = workspace().employees.filter(person => person.role === 'tester' && project.team.includes(person.id));
+        const assignee = testers.find(person => person.id === issue.reportedById || person.name === issue.reportedBy) ||
+          testers.find(person => person.available !== false) || testers[0];
+        if (!assignee) continue;
+        test.assigneeId = assignee.id;
+      }
+      const blocked = test.status === 'blocked' && test.bugId === issue.id && test.buildVersion === issue.fix.buildVersion;
+      test.bugId = issue.id;
+      test.buildVersion = issue.fix.buildVersion;
+      delete issue.verifiedBy;
+      delete issue.verifiedAt;
+      if (!blocked) test.status = 'retest';
+      project.uat.stage = 'testing';
+      if (/complete|finished|shipped|archived/i.test(project.status) || Number(project.progress) >= 100) {
+        project.status = 'In progress';
+        project.progress = Math.min(99,Number(project.progress)||0);
+      }
+      if (before !== JSON.stringify([project,issue])) changed = true;
+    }
+    return changed;
+  };
 
   workflow.submitFix = function (issueId, fix) {
     A.refreshWorkspace();

@@ -5,6 +5,7 @@ const {BASE_URL, RESULTS_DIR} = require('./support.cjs');
 
 const root = path.resolve(__dirname, '../..');
 const suites = [
+  ['Developer fix and direct tester retest access', 'test-retest-access.cjs'],
   ['Phone, tablet and direct-file workspaces', 'test-responsive-workspaces.cjs'],
   ['Project assignment and UAT handoff integrity', 'test-workflow-scope.cjs'],
   ['Customer entry and interrupted session recovery', 'test-beta-entry-recovery.cjs'],
