@@ -50,7 +50,7 @@ const {launchBrowser,BASE_URL,RESULTS_DIR}=require('./support.cjs');
   assert.equal(await card.getByRole('progressbar',{name:'Developer progress'}).getAttribute('aria-valuenow'),'100');
   await card.getByText('Testing: 0 of 8 passed (0%)',{exact:true}).waitFor();
   const fonts=await card.evaluate(el=>['.uat-project-mark','.uat-project-info > strong','.uat-project-description'].map(selector=>getComputedStyle(el.querySelector(selector)).fontSize));
-  assert.deepEqual(fonts,['22px','22px','22px']);
+  assert.deepEqual(fonts,['22px','22px','14px']);
   await page.screenshot({path:path.join(RESULTS_DIR,'developer-waiting-retest.png'),animations:'disabled'});
   await focus('tester');await tester.getByRole('button',{name:'Pass',exact:true}).click();
   await focus('developer');
@@ -58,6 +58,6 @@ const {launchBrowser,BASE_URL,RESULTS_DIR}=require('./support.cjs');
   await card.getByText('Testing: 1 of 8 passed (13%)',{exact:true}).waitFor();
   assert.equal(await card.getAttribute('data-project-priority'),'low');
   assert.deepEqual(errors,[]);
-  console.log('PASS: developer waits neutrally before bugs and after fix submission; actionable bug has high priority; submitted progress100%, real scenario progress0->13%; pending manager approval; project title/name/mark all22px; correct bug-reported caption.');
+  console.log('PASS: developer waits neutrally before bugs and after fix submission; actionable bug has high priority; submitted progress100%, real scenario progress0->13%; pending manager approval; project title/mark22px with14px supporting copy; correct bug-reported caption.');
  }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

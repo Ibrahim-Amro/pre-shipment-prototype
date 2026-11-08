@@ -511,8 +511,8 @@ body .planner-task-dialog .field { margin-bottom: 12px; }
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: #7a849b;
-  font-size: 10px;
+  color: #50607d;
+  font-size: 13px;
   text-align: left;
 }
 
@@ -578,7 +578,7 @@ body .planner-task-dialog .field { margin-bottom: 12px; }
 }
 
 .planner-page-heading p {
-  color: #8c96aa;
+  color: #566680;
   font-size: 9px;
   line-height: 1.6;
 }
@@ -595,7 +595,7 @@ body .planner-task-dialog .field { margin-bottom: 12px; }
   background: #3866df;
   box-shadow: 0 3px 8px #3866df20;
   color: #fff;
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 650;
 }
 
@@ -636,7 +636,12 @@ body .planner-task-dialog .field { margin-bottom: 12px; }
 }
 
 .planner-search input::placeholder {
-  color: #a1abc0;
+  color: #66748c;
+}
+
+.planner-search:focus-within {
+  outline: 2px solid var(--planner-blue);
+  outline-offset: 2px;
 }
 
 .planner-toolbar > select,
@@ -705,12 +710,12 @@ body .planner-task-dialog .field { margin-bottom: 12px; }
 .planner-task-check {
   display: grid;
   place-items: center;
-  width: 17px;
-  height: 17px;
+  width: 22px;
+  height: 22px;
   margin-top: 1px;
-  flex: 0 0 17px;
+  flex: 0 0 22px;
   padding: 0;
-  border: 1px solid #cdd7eb;
+  border: 1px solid #7e8aa2;
   border-radius: 50%;
   background: #fff;
   color: #fff;
@@ -739,17 +744,17 @@ body .planner-task-dialog .field { margin-bottom: 12px; }
 .planner-task-details > strong {
   margin-bottom: 4px;
   color: #43516d;
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 650;
 }
 
 .planner-task.is-done .planner-task-details > strong {
-  color: #9aa5b7;
+  color: #626e84;
   text-decoration: line-through;
 }
 
 .planner-task-details > small {
-  color: #9aa4b7;
+  color: #576680;
   font-size: 9px;
   line-height: 1.6;
 }
@@ -759,8 +764,8 @@ body .planner-task-dialog .field { margin-bottom: 12px; }
   align-items: center;
   gap: 5px;
   margin-top: 9px;
-  color: #9aa5bb;
-  font-size: 8px;
+  color: #586883;
+  font-size: 12px;
 }
 
 .planner-priority {
@@ -768,24 +773,24 @@ body .planner-task-dialog .field { margin-bottom: 12px; }
   padding: 2px 5px;
   border-radius: 4px;
   background: #eef2f8;
-  color: #91a0b5;
-  font-size: 8px;
+  color: #51617c;
+  font-size: 11px;
   font-style: normal;
 }
 
 .planner-priority.high {
   background: #fff0ed;
-  color: #da8473;
+  color: #a14130;
 }
 
 .planner-priority.normal {
   background: #edf1fe;
-  color: #8298d2;
+  color: #4762a0;
 }
 
 .planner-priority.low {
   background: #ebf7f0;
-  color: #7ca790;
+  color: #3c6952;
 }
 
 .planner-task-edit {
@@ -846,7 +851,7 @@ body .planner-task-dialog .field { margin-bottom: 12px; }
 }
 
 .planner-task.is-card .planner-task-details {
-  flex-basis: calc(100% - 24px);
+  flex-basis: calc(100% - 30px);
 }
 
 .planner-task.is-card select {
@@ -857,7 +862,7 @@ body .planner-task-dialog .field { margin-bottom: 12px; }
 }
 
 .planner-task.is-card .planner-task-details > strong {
-  font-size: 10px;
+  font-size: 14px;
 }
 
 .planner-task.is-card .planner-task-details > small {
@@ -914,15 +919,15 @@ body .planner-task-dialog .field { margin-bottom: 12px; }
   padding: 7px 12px;
   border-top: 1px solid var(--planner-line);
   background: #fafbfe;
-  color: #9da9bc;
-  font-size: 8px;
+  color: #5b6a82;
+  font-size: 11px;
 }
 
 .planner-statusbar > span:first-child {
   display: flex;
   align-items: center;
   gap: 5px;
-  color: #8aab9c;
+  color: #456c5b;
 }
 
 .planner-taskbar {

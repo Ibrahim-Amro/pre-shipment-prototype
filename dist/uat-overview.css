@@ -399,10 +399,9 @@
   }
 }
 
-/* Project identities and their descriptive names share a readable scale. */
+/* Keep project identities prominent, with supporting copy at the shared body size. */
 body .uat-project-row .uat-project-mark,
-body .uat-project-row .uat-project-info > strong,
-body .uat-project-row .uat-project-description {
+body .uat-project-row .uat-project-info > strong {
   font-size: 22px;
   line-height: 1.35;
 }
@@ -413,6 +412,8 @@ body .uat-project-row .uat-project-mark {
 }
 
 body .uat-project-description {
+  font-size: 14px;
+  line-height: 1.6;
   white-space: normal;
   overflow-wrap: anywhere;
 }
@@ -421,7 +422,7 @@ body .uat-project-description {
   display: block;
   margin-block: 5px;
   color: var(--blue);
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.5;
   overflow-wrap: anywhere;

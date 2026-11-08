@@ -82,8 +82,40 @@
 }
 
 .uat-manager-project-foot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
   padding-top: 9px;
   border-top: 1px solid var(--line);
+}
+
+.uat-manager-project-foot > p {
+  margin: 0;
+}
+
+.uat-manager-project-foot > .uat-manager-actions {
+  width: 100%;
+  min-width: 0;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+}
+
+.uat-manager-project-foot > .uat-manager-actions > .btn {
+  min-height: 40px;
+  justify-content: center;
+}
+
+@container uat-main (max-width: 560px) {
+  .uat-manager-project-foot > .uat-manager-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .uat-manager-project-foot > .uat-manager-actions > .btn {
+    width: 100%;
+    white-space: normal;
+  }
 }
 
 .uat-manager-preparation > .uat-project-section {
@@ -265,11 +297,6 @@
 }
 
 @container uat-main (max-width: 430px) {
-  .uat-manager-project-foot {
-    align-items: start;
-    flex-direction: column;
-  }
-
   .uat-manager-case-fields {
     grid-template-columns: minmax(0,1fr);
   }

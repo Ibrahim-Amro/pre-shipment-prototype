@@ -10,6 +10,8 @@
   let toggle;
   let projectId;
   let focusedRole;
+  let compactRole = 'manager';
+  const compactScreen = matchMedia('(max-width: 799px), (max-width: 1000px) and (max-height: 500px)');
   let previousAppState;
   let homeOnLaunch=false;
   let controlsInitialized=false;
@@ -76,7 +78,7 @@
     photo.src = `avatars/${portrait >= 1 && portrait <= 16 ? portrait : 15}.jpg`;
     photo.alt = person?.name || labels[role];
     if (role === 'customer') return;
-    const unread = app().notificationsFor(role, people[role]).filter(notice => !notice.read).length;
+    const unread = app().unreadCountFor(role, people[role]);
     const messages = panel.querySelector('[data-panel-action="messages"]');
     messages.innerHTML = `${icon('bell', 17)}${unread ? `<span class="four-unread">${unread > 99 ? '99+' : unread}</span>` : ''}`;
     messages.setAttribute('aria-label', `${labels[role]} messages${unread ? `, ${unread} unread` : ''}`);
@@ -101,7 +103,7 @@
     }
     controlsInitialized=true;
     const select = shell.querySelector('#four-project');
-    select.innerHTML = (!projectId?'<option value="">All projects</option>':'')+choices.map(project => `<option value="${escape(project.id)}"${project.id === projectId ? ' selected' : ''}>${escape(project.name)}</option>`).join('');
+    select.innerHTML = '<option value="">All projects</option>'+choices.map(project => `<option value="${escape(project.id)}"${project.id === projectId ? ' selected' : ''}>${escape(project.name)}</option>`).join('');
 
     for (const role of roles.filter(role => role !== 'customer')) {
       const list = rolePeople(role);
@@ -124,13 +126,21 @@
     rememberView();
   }
 
-  function focusPanel(role) {
-    focusedRole = focusedRole === role ? null : role;
-    shell.classList.toggle('four-view-focused', Boolean(focusedRole));
-    shell.querySelector(`.four-panel[data-role="${focusedRole || 'customer'}"] .four-panel-header`)
-      .appendChild(shell.querySelector('.four-workspace-controls'));
+  function syncPanelLayout() {
+    const compact = compactScreen.matches;
+    const visibleRole = compact ? compactRole : focusedRole;
+    shell.classList.toggle('four-compact-screen', compact);
+    shell.classList.toggle('four-view-focused', Boolean(visibleRole));
+    const bar = shell.querySelector('.four-compact-bar');
+    bar.hidden = !compact;
+    const controlsParent = compact ? bar : shell.querySelector(`.four-panel[data-role="${focusedRole || 'customer'}"] .four-panel-header`);
+    const controls = shell.querySelector('.four-workspace-controls');
+    if (controls.parentElement !== controlsParent) controlsParent.appendChild(controls);
+    for (const choice of bar.querySelectorAll('[data-show-role]')) {
+      choice.setAttribute('aria-pressed', String(choice.dataset.showRole === compactRole));
+    }
     for (const panel of shell.querySelectorAll('.four-panel')) {
-      const focused = panel.dataset.role === focusedRole;
+      const focused = panel.dataset.role === visibleRole;
       panel.classList.toggle('is-focused', focused);
       const button = panel.querySelector('[data-focus-role]');
       button.setAttribute('aria-pressed', String(focused));
@@ -139,12 +149,18 @@
     }
   }
 
+  function focusPanel(role) {
+    focusedRole = focusedRole === role ? null : role;
+    if (focusedRole) compactRole = focusedRole;
+    syncPanelLayout();
+  }
+
   function createShell() {
     shell = document.createElement('section');
     shell.className = 'four-view-shell';
     shell.hidden = true;
     shell.setAttribute('aria-label', 'Four-role workspace');
-    shell.innerHTML = `<div class="four-view-grid">${roles.map(role => `<section class="four-panel" data-role="${role}" aria-label="${labels[role]} panel">
+    shell.innerHTML = `<div class="four-compact-bar" hidden><div class="four-role-choices" role="group" aria-label="Choose workspace">${roles.map(role => `<button type="button" data-show-role="${role}">${labels[role]}</button>`).join('')}</div></div><div class="four-view-grid">${roles.map(role => `<section class="four-panel" data-role="${role}" aria-label="${labels[role]} panel">
       <header class="four-panel-header">
         <img class="four-profile-photo" alt="">
         <h2 class="four-role four-role-${role}">${labels[role]}</h2>
@@ -160,6 +176,14 @@
       <iframe data-role="${role}" title="${labels[role]} workspace" allow="clipboard-write"></iframe>
     </section>`).join('')}</div>`;
     document.body.appendChild(shell);
+    for (const button of shell.querySelectorAll('[data-show-role]')) {
+      button.onclick = () => {
+        compactRole = button.dataset.showRole;
+        syncPanelLayout();
+      };
+    }
+    compactScreen.addEventListener('change', syncPanelLayout);
+    syncPanelLayout();
     shell.querySelector('.four-view-close').onclick = view.close;
     shell.querySelector('#four-project').onchange = event => {
       homeOnLaunch=false;
@@ -208,6 +232,12 @@
   view.open = function () {
     if (embedded || !app()) return;
     if (shell && !shell.hidden) return;
+    if (location.protocol === 'file:') {
+      app().modal(`<div class="modal-header"><h2>Open the shared workspace</h2><button class="icon-btn" aria-label="Close" onclick="A.closeModal()">${icon('x')}</button></div>
+        <div class="modal-body"><p>The four panels share projects through the local server. Double-click <strong>Start Prototype.cmd</strong> in the project folder, or run <code>npm start</code> there.</p></div>
+        <div class="modal-footer"><button class="btn" onclick="A.closeModal()">Stay here</button><a class="btn primary" href="http://127.0.0.1:4173/">Open local prototype</a></div>`, '');
+      return;
+    }
     if (!shell) createShell();
     const normalApp = document.getElementById('app');
     previousAppState = {inert:normalApp.inert, ariaHidden:normalApp.getAttribute('aria-hidden')};
@@ -218,7 +248,8 @@
     toggle.setAttribute('aria-pressed', 'true');
     toggle.innerHTML = `${icon('x', 20)}<span>Close four panels</span>`;
     refreshControls();
-    shell.querySelector('#four-project').focus();
+    const entryFocus = compactScreen.matches ? shell.querySelector(`[data-show-role="${compactRole}"]`) : shell.querySelector('#four-project');
+    entryFocus.focus({preventScroll:true});
   };
 
   view.close = function () {
@@ -266,7 +297,7 @@
     }
     window.addEventListener('keydown', event => {
       if (event.key === 'Escape' && shell && !shell.hidden) {
-        if (focusedRole) focusPanel(focusedRole);
+        if (focusedRole && !compactScreen.matches) focusPanel(focusedRole);
         else view.close();
       }
     });

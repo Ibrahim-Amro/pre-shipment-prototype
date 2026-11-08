@@ -183,7 +183,7 @@
         findings.length ? `${findings.length} unresolved ${findings.length === 1 ? 'finding' : 'findings'}` : '',
         reviews ? `${reviews} verified ${reviews === 1 ? 'fix awaits' : 'fixes await'} manager approval` : ''
       ].filter(Boolean).join(' · ');
-      const review = reviews ? button('Review verified fixes', "Workspaces.go('issues');Workspaces.filter('issueFilter','review')", 'primary') : '';
+      const review = reviews ? button('Review verified fixes', `Workspaces.projectIssues(${arg(project.id)},true)`, 'primary') : '';
       return projectCard(project, detail, review + button('Review progress',`UatManager.openProject(${arg(project.id)})`)+button('Share early beta',`UatManager.shareEarlyBeta(${arg(project.id)})`,'secondary','external-link'));
     };
     const readyCard = project => projectCard(project,
@@ -196,7 +196,8 @@
   function customerView(projects) {
     const customerCard = project => {
       const summary=Workspaces.customerSummary(project.id);
-      const detail=`${project.uat?.earlyBeta?.enabled?'Early beta · UAT is not finished · ':''}${summary.count?`${app().badge(summary.needsAction?'Needs action':'No action needed',summary.needsAction?'red':'green')} ${app().badge('Customer acceptance: '+summary.acceptance,summary.acceptance==='Failed'?'red':summary.acceptance==='Passed'?'green':'gray')} ${app().badge(summary.status,summary.status==='Ignored'?'gray':'blue')}<br>${esc(summary.preview)}`:'Awaiting customer feedback'}`;
+      const availability=project.uat?.earlyBeta?.enabled?'Early beta · UAT is not finished · ':UatWorkflow.stage(project)==='testing'?'Customer acceptance paused · Back in UAT · ':'';
+      const detail=`${availability}${summary.count?`${app().badge(summary.needsAction?'Needs action':'No action needed',summary.needsAction?'red':'green')} ${app().badge('Customer acceptance: '+summary.acceptance,summary.acceptance==='Failed'?'red':summary.acceptance==='Passed'?'green':'gray')} ${app().badge(summary.status,summary.status==='Ignored'?'gray':'blue')}<br>${esc(summary.preview)}`:'Awaiting customer feedback'}`;
       const actions=button('Review customer feedback',`Workspaces.openCustomerFeedback(${arg(project.id)})`,'primary','message-square')+
         (UatWorkflow.customerAvailable(project)?button('Open invitation draft',`Beta.previewInvitation(${arg(project.id)})`,'secondary','mail'):button('Review progress',`UatManager.openProject(${arg(project.id)})`));
       return projectCard(project,detail,actions,`Workspaces.openCustomerFeedback(${arg(project.id)})`);
@@ -343,7 +344,7 @@
     if (selected) content = preparationView(selected);
     else if (view === 'awaiting') content = awaitingView(projects.filter(project => UatWorkflow.stage(project)==='awaiting'));
     else if (view === 'customer') content = customerView(projects.filter(project => UatWorkflow.customerAvailable(project)||project.uat?.customerSentAt));
-    else content = testingView(projects.filter(activeStage));
+    else content = testingView(projects.filter(activeStage).sort(ProjectPriority.compareForRole));
     return `<div class="uat-overview uat-manager-overview">${stageHeading()}${content}</div>`;
   };
 
@@ -482,7 +483,10 @@
     }
     const updates = new Map(next.map(testCase => [testCase.id,testCase]));
     const combined = project.uat.cases.map(testCase => updates.get(testCase.id) || testCase);
-    if (!UatWorkflow.startTesting(project.id, {cases:combined, developerIds, testerIds})) return;
+    if (!UatWorkflow.startTesting(project.id, {cases:combined, developerIds, testerIds})) {
+      app().toast('The team or scenarios have changed. Reopen the project to review the current plan.','error');
+      return;
+    }
     view = 'testing';
     selectedProjectId = '';
     app().render();

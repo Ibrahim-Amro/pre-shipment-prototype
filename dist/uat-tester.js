@@ -77,6 +77,11 @@
 
     function render(focusCase = false) {
       const cases = UatWorkflow.casesForProject(project.id);
+      if (!cases.some(testCase => testCase.id === selectedId)) {
+        selectedId = cases.find(canExecute)?.id || cases[0]?.id;
+      }
+      const version = document.querySelector('.uat-tester-header h2 + p');
+      if (version) version.textContent = [projectById(project.id)?.version, 'User acceptance testing'].filter(Boolean).join(' · ');
       const selected = cases.find(testCase => testCase.id === selectedId);
       queue.innerHTML = cases.map((testCase, index) =>
         `<li class="uat-queue-row"><button type="button" class="uat-case-select" data-case-index="${index}" aria-pressed="${selectedId === testCase.id}">
@@ -111,8 +116,10 @@
 
       function record(outcome, details = {}) {
         const isRetest = Boolean(selected.bugId && selected.buildVersion);
-        if (!UatWorkflow.recordOutcome(project.id, selected.id, outcome, details)) {
-          app().toast('This test result could not be saved. Reopen the project and try again.', 'error');
+        const observation={...details, observedStatus:selected.status, observedBuild:selected.buildVersion};
+        if (!UatWorkflow.recordOutcome(project.id, selected.id, outcome, observation)) {
+          render();
+          app().toast('The case changed. Review its current status and build before recording a result.', 'error');
           return false;
         }
         app().render();

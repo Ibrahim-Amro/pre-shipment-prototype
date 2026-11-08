@@ -18,6 +18,7 @@
 }
 
 .four-view-toggle:hover { background: #1848c5; }
+body:has(#modal-root .modal-overlay) > .four-view-toggle { display: none; }
 
 .workspace-demo-button {
   display:inline-flex;align-items:center;gap:7px;flex:none;min-height:34px;padding:6px 10px;
@@ -339,11 +340,59 @@ body.four-view-child .modal-content { max-height: 96dvh; }
   .four-panel-header button { width: 28px; }
 }
 
-@media (max-width: 580px) {
-  .four-view-grid { display: flex; flex-direction: column; overflow: auto; }
-  .four-panel { min-height: 520px; flex: none; }
-  .four-view-focused .four-panel.is-focused { flex: 1; min-height: 0; }
-  .four-view-toggle { right: 12px; bottom: 12px; }
+.four-compact-screen:not([hidden]) { display: flex; flex-direction: column; }
+.four-compact-screen .four-view-grid { flex: 1; min-height: 0; }
+.four-compact-screen .four-focus { display: none; }
+.four-compact-bar:not([hidden]) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 12px;
+  padding: 6px 8px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.four-role-choices {
+  display: flex;
+  flex: 1 1 290px;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+.four-role-choices button {
+  flex: 1;
+  min-height: 36px;
+  padding: 4px 2px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text);
+  font: 650 13px 'DM Sans', sans-serif;
+  cursor: pointer;
+}
+.four-role-choices [aria-pressed="true"] { background: var(--blue); color: #fff; }
+.four-compact-bar .four-workspace-controls { flex: 1 1 175px; justify-content: space-between; padding: 0; border: 0; }
+.four-compact-bar .four-view-project select { width: 130px; height: 36px; }
+.four-compact-bar .four-view-close {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 36px;
+  padding-inline: 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: 650 13px 'DM Sans', sans-serif;
+  cursor: pointer;
+}
+.four-compact-bar .four-view-close > span { display: inline; }
+.four-compact-screen .four-panel-header button { min-width: 30px; min-height: 36px; }
+@media (max-width: 760px) {
+  .four-view-toggle { right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); width: 44px; height: 44px; min-height: 44px; justify-content: center; padding: 0; }
+  .four-view-toggle > span { display: none; }
 }
 
 /* Keep the checklist dominant in tester project windows. */

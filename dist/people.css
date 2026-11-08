@@ -420,3 +420,82 @@ body .of-recipients button {
     width: 100%;
   }
 }
+
+/* Preserve space for the search and the account menu beside the tablet sidebar. */
+@media (min-width: 761px) and (max-width: 1100px) {
+  .topbar { gap: 8px; padding-inline: 14px; }
+  .topbar .global-search { min-width: 130px; }
+  .topbar .workspace-demo-button > span:last-child { display: none; }
+  .topbar .profile-trigger { min-width: 0; flex-shrink: 1; gap: 8px; }
+  .topbar .profile-text { max-width: 135px; }
+  .topbar .profile-text strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+@media (max-width: 760px) {
+  body:not(.four-view-child) .app-layout { position: relative; }
+  body:not(.four-view-child) .app-layout > .sidebar {
+    position: absolute;
+    top: 68px;
+    overflow-y: auto;
+    visibility: hidden;
+  }
+  body:not(.four-view-child) .sidebar.open { visibility: visible; }
+  .topbar {
+    position: relative;
+    flex: 0 0 68px;
+    height: 68px;
+    min-height: 68px;
+    gap: 4px;
+    padding: 6px 8px;
+  }
+  .topbar .profile-trigger { flex: 1; min-width: 0; gap: 6px; }
+  .topbar .profile-trigger .avatar { width: 40px !important; height: 40px !important; }
+  .topbar .profile-text { min-width: 0; }
+  .topbar .profile-text strong, .topbar .profile-text small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .topbar .profile-text strong { font-size: 15px; }
+  .topbar .profile-text small { margin-top: 1px; }
+  .topbar .global-search {
+    display: flex;
+    flex: 0 0 30px;
+    min-width: 0;
+    width: 30px;
+    height: 34px;
+    margin: 0;
+    padding: 0;
+    justify-content: center;
+  }
+  .topbar .global-search input {
+    display: block;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .topbar .global-search:focus-within {
+    position: absolute;
+    z-index: 45;
+    inset-inline: 46px 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: auto;
+    height: 44px;
+    gap: 8px;
+    padding-inline: 12px;
+    border: 1px solid var(--blue);
+    background: var(--surface);
+  }
+  .topbar .global-search:focus-within input { position: static; flex: 1; min-width: 0; opacity: 1; cursor: text; }
+  .login-layout { overflow-y: auto; }
+  .login-form-side { overflow: visible; padding-bottom: 64px; }
+  body:not(.four-view-child) .main-content { padding-bottom: 64px; }
+}
+
+@media (max-width: 360px) {
+  .titlebar { white-space: nowrap; }
+  .titlebar > .spacer + span { display: none; }
+  .topbar { gap: 2px; }
+  .topbar .profile-trigger .avatar { width: 32px !important; height: 32px !important; }
+  .topbar .profile-text strong { display: none; }
+  body .app-window .topbar .profile-text small { font-size: 12px !important; }
+}

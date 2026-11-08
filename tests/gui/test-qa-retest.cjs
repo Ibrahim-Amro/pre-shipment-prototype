@@ -72,6 +72,15 @@ const {launchBrowser, BASE_URL, RESULTS_DIR} = require('./support.cjs');
    await focus('developer');
    await developer.locator('[data-page=issues]').click();
    await developer.getByRole('button',{name:issueTitle,exact:true}).click();
+   const current=await developer.evaluate(title=>A.state.issues.find(i=>i.title===title),issueTitle);
+   if(current.retestHistory?.some(item=>item.status==='fail')){
+    await developer.getByText('qa-evidence.png',{exact:true}).waitFor();
+    await developer.getByText('Failed retest · Build v2.4.1',{exact:true}).waitFor();
+    await developer.getByText('The task still disappears on the updated build.',{exact:true}).waitFor();
+    assert.ok(current.evidenceId,'The original evidence stays attached after a failed retest');
+    assert.equal(current.description,'The task is absent after saving. Updated after review.');
+   }
+   if(current.reviewNotes)await developer.getByText(current.reviewNotes,{exact:true}).waitFor();
    if(!openedEvidence){
     await developer.getByText('qa-evidence.png',{exact:true}).waitFor();
     const popupPromise=context.waitForEvent('page');
@@ -90,6 +99,7 @@ const {launchBrowser, BASE_URL, RESULTS_DIR} = require('./support.cjs');
    await developer.getByRole('button',{name:'Analyze proposed fix'}).click();
    await developer.getByRole('button',{name:'Submit fix for retest'}).click();
    await tester.getByText(build,{exact:true}).waitFor({state:'attached'});
+   await tester.locator('.uat-tester-header h2 + p').getByText(build,{exact:false}).count();
   }
   await focus('tester');await accept(tester,'Project 1');await openProject(tester);
   assert.equal(await tester.locator('#uat-test-queue-list [data-case-index]').count(),7);

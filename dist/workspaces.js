@@ -42,9 +42,9 @@
     const p=project(projectId);
     if(!p)return false;
     if(role()==='manager')return true;
-    if(UatWorkflow.stage(p)==='awaiting')return false;
+    if(UatWorkflow.stage(p)==='awaiting' || !p.team?.includes(user().id))return false;
     const personal=(state().assignments||[]).filter(assignment=>assignment.employeeId===user().id&&assignment.projectId===p.id);
-    if(personal.length)return personal.every(assignment=>assignment.accepted||(state().accepted||{})[assignment.id]);
+    if(personal.length)return personal.every(assignmentAccepted);
     return false;
   };
   const myProjects = () => allProjects().filter(p=>W.hasAcceptedProject(p.id));
@@ -53,8 +53,7 @@
     const all = (state().issues || []).filter(i =>
       ids.includes(i.projectId)
     );
-    const mine = all.filter(i => i.assignee === user().id);
-    return role() === 'developer' && mine.length ? mine : all;
+    return role() === 'developer' ? all.filter(i => i.assignee === user().id) : all;
   };
   const testCaseFor = i => project(i.projectId)?.uat?.cases?.find(test => test.id===i.uatCaseId);
   const canFix = i => role()==='developer' && i.assignee===user().id
@@ -66,7 +65,7 @@
   const severityOrder = s => ({Critical:0,High:1,Medium:2,Low:3}[s] ?? 4);
   const urgent = i => i.severity === 'Critical' ? 96 : i.severity === 'High' ? 84 : i.severity === 'Medium' ? 56 : 28;
   const percent = v => Math.max(0,Math.min(100,Number(v) || 0));
-  const date = v => { if (!v) return 'Nov 12'; const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(String(v)) ? v+'T12:00:00' : v); return Number.isNaN(d.valueOf()) ? esc(v) : d.toLocaleDateString('en-US',{month:'short',day:'numeric'}); };
+  const date = v => { if (!v) return 'Not scheduled'; const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(String(v)) ? v+'T12:00:00' : v); return Number.isNaN(d.valueOf()) ? esc(v) : d.toLocaleDateString('en-US',{month:'short',day:'numeric'}); };
   const projectMark = p => `<span class="ws-project-mark project-priority-mark" data-project-priority="${ProjectPriority.of(p).key}">${esc(p.abbr || p.name.split(' ').map(s=>s[0]).slice(0,2).join(''))}</span>`;
   const touchProject = id => {const p=project(id);if(p)p.updatedAt=new Date().toISOString();};
   const refresh = () => { app().save(); app().render(); };
@@ -83,12 +82,13 @@
   const stat = (label, value, foot, icon, color='blue') => `<div class="ws-stat card"><div class="ws-stat-label">${label}<span class="ws-stat-icon ws-${color}">${ico(icon,18)}</span></div><div class="ws-stat-value">${value}</div><div class="ws-stat-foot">${foot}</div></div>`;
   const progress = (v, color='blue') => `<div class="ws-progress"><span class="ws-progress-fill ws-progress-${color}" style="width:${percent(v)}%"></span></div>`;
   const empty = (title, body, icon='check-circle') => `<div class="ws-empty"><span>${ico(icon,30)}</span><h3>${title}</h3><p>${body}</p></div>`;
-  const assignments = () => (state().assignments || []).filter(a => a.employeeId === user().id);
-  const pending = () => role()==='manager'?[]:assignments().filter(a => UatWorkflow.stage(project(a.projectId))!=='awaiting').filter(a => !a.accepted && !(state().accepted || {})[a.id]).sort((a,b)=>ProjectPriority.compare(project(a.projectId),project(b.projectId)));
+  const assignments = () => (state().assignments || []).filter(a => a.employeeId === user().id && project(a.projectId)?.team?.includes(user().id));
+  const assignmentAccepted = a => Boolean(a.accepted || state().accepted?.[a.id]);
+  const pending = () => role()==='manager'?[]:assignments().filter(a => UatWorkflow.stage(project(a.projectId))!=='awaiting').filter(a => !assignmentAccepted(a)).sort((a,b)=>ProjectPriority.compare(project(a.projectId),project(b.projectId)));
   function assignmentBanner() {
     const a = pending()[0];
     if (!a) {
-      const accepted=assignments().filter(x=>x.accepted||(state().accepted||{})[x.id]).slice(-1)[0];
+      const accepted=assignments().filter(assignmentAccepted).at(-1);
       if(!accepted)return '';
       const p=project(accepted.projectId);
       return `<div class="ws-accepted-banner"><span class="ws-accepted-check">${ico('check',15)}</span><div><strong>Assignment accepted</strong><span>${esc(p?p.name:'Your project')} · Your ${roleName(role()).toLowerCase()} workspace is active.</span></div>${btn('View invitation','previewInvite',accepted.id,'ghost','mail')}</div>`;
@@ -127,13 +127,14 @@
       const p = allProjects()[0];
       state().feedback=[{id:'FB-101',name:'Sarah Mitchell',email:'sarah.mitchell@northwell.example',avatar:47,projectId:p?p.id:'p1',type:'Bug',title:'Export button gets stuck on larger reports',description:'When I export a report with more than 100 shipments, the loading indicator keeps spinning and the download never starts. Smaller reports work correctly.',status:'New',createdAt:'2 hours ago',environment:'Chrome 130 · Windows 11'},{id:'FB-102',name:'David Chen',email:'david.chen@meridian.example',avatar:12,projectId:p?p.id:'p1',type:'Suggestion',title:'A saved filter would make daily checks faster',description:'I use the same region and date range every morning. Being able to save a filter and give it a name would save our team a lot of time.',status:'New',createdAt:'4 hours ago',environment:'Edge · Windows 11'},{id:'FB-103',name:'Emily Roberts',email:'emily.roberts@carebridge.example',avatar:44,projectId:p?p.id:'p1',type:'Bug',title:'Shipment notes disappear after going back',description:'If I add a note and go back to edit the delivery address, my notes are cleared. It would help if draft changes were preserved.',status:'Approved',createdAt:'Yesterday',environment:'Safari · macOS'}];
     }
-    return state().feedback;
+    return (state().feedback || []).filter(item=>W.hasAcceptedProject(item.projectId));
   }
   function feedbackCard(f,compact=false) {
     const p=project(f.projectId), name=f.name||f.customer||f.customerName||'Customer';
     const type=f.type||f.category||'Suggestion';
     const reviewed=/approved|sent|resolved|reviewed/i.test(f.status||'');
-    return `<article class="card ws-feedback-card ${reviewed?'ws-feedback-reviewed':''}"><div class="ws-feedback-card-top"><div class="ws-feedback-person">${app().person({name,avatar:f.avatar>0&&f.avatar<=16?f.avatar:15},'Customer')}<p class="person-meta">${esc(p?p.name:'Customer preview')} · ${esc(f.time||(f.createdAt && !f.createdAt.includes('T')?f.createdAt:'Recently'))}</p></div>${badge(type,/bug/i.test(type)?'amber':'purple')}</div><button class="ws-feedback-title" onclick="Workspaces.feedbackDetails(${js(f.id)})">${esc(f.title||f.subject||'Customer feedback')}</button><p>${esc(f.description||f.body||f.message||f.content||'A customer has shared an idea for the next release.')}</p><div class="ws-feedback-bottom">${reviewed?badge(f.status,'green'):`<span class="ws-status-new"><i></i>Needs review</span>`}<div>${reviewed?btn('View details','feedbackDetails',f.id,'ghost','arrow-up-right'): /bug/i.test(type)?btn('Approve bug','triageFeedback',f.id,'secondary','check'):btn('Send to developers','triageFeedback',f.id,'secondary','arrow-right')}</div></div></article>`;
+    const readOnly=role()==='developer' || reviewed;
+    return `<article class="card ws-feedback-card ${reviewed?'ws-feedback-reviewed':''}"><div class="ws-feedback-card-top"><div class="ws-feedback-person">${app().person({name,avatar:f.avatar>0&&f.avatar<=16?f.avatar:15},'Customer')}<p class="person-meta">${esc(p?p.name:'Customer preview')} · ${esc(f.time||(f.createdAt && !f.createdAt.includes('T')?f.createdAt:'Recently'))}</p></div>${badge(type,/bug/i.test(type)?'amber':'purple')}</div><button class="ws-feedback-title" onclick="Workspaces.feedbackDetails(${js(f.id)})">${esc(f.title||f.subject||'Customer feedback')}</button><p>${esc(f.description||f.body||f.message||f.content||'A customer has shared an idea for the next release.')}</p><div class="ws-feedback-bottom">${reviewed?badge(f.status,'green'):`<span class="ws-status-new"><i></i>Needs review</span>`}<div>${readOnly?btn('View details','feedbackDetails',f.id,'ghost','arrow-up-right'): /bug/i.test(type)?btn('Approve bug','triageFeedback',f.id,'secondary','check'):btn('Send to developers','triageFeedback',f.id,'secondary','arrow-right')}</div></div></article>`;
   }
   function managerBetaSessions() {
     return (state().betaFeedback || []).filter(session => session.managerId === user().id);
@@ -182,6 +183,7 @@
     app().modal(`<header class="modal-header"><h2>Send customer feedback to developers</h2>${btn('Close','close',null,'ghost')}</header><div class="modal-body"><p>Each selected note becomes a tracked finding with the customer’s original details.</p><label class="field"><span>Assign developer</span><select id="ws-beta-developer" aria-label="Assign developer">${devs.map(person=>`<option value="${esc(person.id)}">${esc(person.name)}</option>`).join('')}</select></label>${batch.notes.map((note,index)=>{const sent=state().issues.some(finding=>finding.betaFeedbackId===id&&finding.betaNoteIndex===index);return `<label class="ws-beta-note-choice"><input type="checkbox" data-beta-note="${index}" ${sent?'disabled':'checked'}><span><strong>${esc(note.title)}</strong><p>${esc(note.body)}</p>${sent?badge('Already sent','green'):''}</span></label>`;}).join('')}</div><footer class="modal-footer">${btn('Back','reviewBetaSession',id,'secondary')}${btn('Send selected notes','confirmBetaForward',id,'primary','send')}</footer>`,'large');
   };
   W.confirmBetaForward=function(id){
+    app().refreshWorkspace();
     const batch=managerBetaSessions().find(item=>item.id===id);if(role()!=='manager'||!batch)return;
     const developerId=document.getElementById('ws-beta-developer').value;
     if(!projectDevelopers(batch.projectId).some(person=>person.id===developerId))return;
@@ -230,19 +232,20 @@
   W.filter = (key,value) => {ui[key]=value;app().render();};
   W.searchCards = (value,cls) => document.querySelectorAll('.'+cls).forEach(el=>el.style.display=el.innerText.toLowerCase().includes(value.toLowerCase())?'':'none');
   W.previewInvite = function(id) {
-    const a=assignments().find(x=>x.id===id)||(state().assignments||[]).find(x=>x.id===id); if(!a)return;
+    const a=assignments().find(x=>x.id===id); if(!a)return;
     const p=project(a.projectId), e=employee(a.employeeId)||user();
-    app().modal(`<div class="modal-header"><div><div class="eyebrow">ASSIGNMENT INVITATION</div><h2>Your next release starts here</h2></div><button class="ws-icon-button" onclick="A.closeModal()">${ico('x',20)}</button></div><div class="modal-body"><div class="ws-email-meta"><span>From</span><strong>Pre-Shipment · Project Office</strong><span>To</span><div>${app().person(e,roleName(e.role))}<p class="person-meta">${esc(e.email)}</p></div><span>Subject</span><strong>Job Assignment — ${esc(p?p.name:'New project')}</strong></div><div class="ws-email-body"><p>Hi ${esc(e.name.split(' ')[0])},</p><p>You've been assigned as ${/^[aeiou]/i.test(roleName(e.role))?'an':'a'} <strong>${esc(roleName(e.role))}</strong> on <strong>${esc(p?p.name:'our next release')}</strong>. Your expertise will help us make this a confident, reliable shipment.</p><div class="ws-email-assignment"><strong>Your focus</strong><p>${e.role==='developer'?'Review the priority queue, implement resilient fixes, and submit your work for manager approval.':e.role==='tester'?'Review customer feedback, run code and GUI analyses, and document reproducible findings for the development team.':'Keep the release on schedule, review proposed fixes, and coordinate the people needed for a successful shipment.'}</p><span>Target shipment · ${date(p&&p.deadline)}</span></div><p>Use the credentials below to sign in, then enter your assignment key to accept the project.</p><div class="ws-credential-grid"><div><span>USERNAME</span><strong>${esc(a.username||e.email)}</strong></div><div><span>TEMPORARY PASSWORD</span><strong>${esc(a.password||'Welcome2026!')}</strong></div></div><div class="ws-key-block"><div><span>YOUR ASSIGNMENT KEY</span><strong>${esc(a.key)}</strong></div><button class="btn secondary" onclick="A.copy(${js(a.key)})">${ico('copy',16)}Copy key</button></div><p>Thank you for helping us bring better releases to the people who depend on them.</p><p>Best,<br><strong>The Pre-Shipment team</strong></p></div><div class="ws-prototype-note">${ico('info',14)}This is a preview of a simulated email. No message has been sent.</div></div><div class="modal-footer">${btn('Close','close',null,'secondary')}${btn('Enter assignment key','acceptAssignment',a.id,'primary','key')}</div>`);
+    app().modal(`<div class="modal-header"><div><div class="eyebrow">ASSIGNMENT INVITATION</div><h2>Your next release starts here</h2></div><button class="ws-icon-button" onclick="A.closeModal()">${ico('x',20)}</button></div><div class="modal-body"><div class="ws-email-meta"><span>From</span><strong>Pre-Shipment · Project Office</strong><span>To</span><div>${app().person(e,roleName(e.role))}<p class="person-meta">${esc(e.email)}</p></div><span>Subject</span><strong>Job Assignment — ${esc(p?p.name:'New project')}</strong></div><div class="ws-email-body"><p>Hi ${esc(e.name.split(' ')[0])},</p><p>You've been assigned as ${/^[aeiou]/i.test(roleName(e.role))?'an':'a'} <strong>${esc(roleName(e.role))}</strong> on <strong>${esc(p?p.name:'our next release')}</strong>. Your expertise will help us make this a confident, reliable shipment.</p><div class="ws-email-assignment"><strong>Your focus</strong><p>${e.role==='developer'?'Review assigned findings, submit a new build, and return each fix to the tester for verification.':e.role==='tester'?'Run your assigned scenarios, record the results, and verify fixes returned by the developer.':'Keep the release on schedule, review proposed fixes, and coordinate the people needed for a successful shipment.'}</p><span>Target shipment · ${date(p&&p.deadline)}</span></div><p>Use the credentials below to sign in, then enter your assignment key to accept the project.</p><div class="ws-credential-grid"><div><span>USERNAME</span><strong>${esc(a.username||e.email)}</strong></div><div><span>TEMPORARY PASSWORD</span><strong>${esc(a.password||'Welcome2026!')}</strong></div></div><div class="ws-key-block"><div><span>YOUR ASSIGNMENT KEY</span><strong>${esc(a.key)}</strong></div><button class="btn secondary" onclick="A.copy(${js(a.key)})">${ico('copy',16)}Copy key</button></div><p>Thank you for helping us bring better releases to the people who depend on them.</p><p>Best,<br><strong>The Pre-Shipment team</strong></p></div><div class="ws-prototype-note">${ico('info',14)}This is a preview of a simulated email. No message has been sent.</div></div><div class="modal-footer">${btn('Close','close',null,'secondary')}${assignmentAccepted(a)?btn('Open project','openProject',a.projectId,'primary','folder'):btn('Enter assignment key','acceptAssignment',a.id,'primary','key')}</div>`);
   };
   W.close = () => app().closeModal();
   W.acceptAssignment = function(id) {
-    const a=assignments().find(x=>x.id===id);if(!a)return;
+    const a=pending().find(x=>x.id===id);if(!a)return;
     const p=project(a.projectId);
     app().modal(`<div class="modal-header"><div><div class="eyebrow">A NEW CHAPTER</div><h2>Accept your assignment</h2></div><button class="ws-icon-button" onclick="A.closeModal()">${ico('x',20)}</button></div><div class="modal-body"><div class="ws-accept-project">${projectMark(p||{name:'New project'})}<div><h3>${esc(p?p.name:'Your next project')}</h3><p>${roleName(role())} · Due ${date(p&&p.deadline)}</p></div>${badge('Awaiting acceptance','amber')}</div><p class="ws-modal-intro">Your personal assignment key is in the invitation from the project manager. The demo key is ready. Confirm it to activate this project in your workspace.</p><label class="field"><span>Assignment key</span><input id="ws-assignment-key" class="input ws-key-input" placeholder="PS-XXXX-XXXX" value="${esc(a.key)}" autocomplete="off" onkeydown="if(event.key==='Enter')Workspaces.confirmAssignment(${js(id)})"></label><div id="ws-key-error" class="ws-form-error" hidden></div><button class="ws-inline-link" onclick="Workspaces.previewInvite(${js(id)})">${ico('mail',15)}Need the key? Preview your invitation</button><div class="ws-info-banner ws-compact-info">${ico('shield-check',18)}<span>Accepting confirms your role, responsibilities, and target shipment date.</span></div></div><div class="modal-footer">${btn('Maybe later','close',null,'secondary')}${btn('OK, accept project','confirmAssignment',id,'primary','check')}</div>`,'medium');
     setTimeout(()=>document.getElementById('ws-assignment-key')?.focus(),100);
   };
   W.confirmAssignment = function(id) {
-    const a=assignments().find(x=>x.id===id), input=document.getElementById('ws-assignment-key');if(!a||!input)return;
+    app().refreshWorkspace();
+    const a=pending().find(x=>x.id===id), input=document.getElementById('ws-assignment-key');if(!a||!input)return;
     if(input.value.trim().toLowerCase()!==String(a.key).trim().toLowerCase()){const error=document.getElementById('ws-key-error');error.hidden=false;error.textContent='That key doesn’t match your invitation. Preview the email to find your personal key.';input.classList.add('ws-input-error');return;}
     a.accepted=true;touchProject(a.projectId);state().accepted=state().accepted||{};state().accepted[a.id]=true;state().accepted[a.projectId]=true;
     notify('Assignment accepted',`${user().name} accepted their ${roleName(role()).toLowerCase()} assignment for ${project(a.projectId)?.name||'the project'}.`,'manager',null,a.projectId);
@@ -298,10 +301,20 @@
     </div>
     <div class="modal-footer">${btn('Close','close',null,'secondary')}<span class="spacer"></span>${actions}</div>`,'wide ws-project-dialog');
   };
-  W.projectIssues = id => {app().closeModal();ui.issueFilter='all';app().navigate('issues');};
+  W.projectIssues = function(id, reviewsOnly=false) {
+    const p=project(id);
+    if(!p || !W.hasAcceptedProject(id))return;
+    const issues=state().issues.filter(item=>item.projectId===id && (!reviewsOnly || UatWorkflow.canReview(item)));
+    app().modal(`<header class="modal-header"><div><div class="eyebrow">${esc(p.name)}</div><h2>${reviewsOnly?'Verified fixes':'Project findings'}</h2></div>${btn('Close','close',null,'ghost')}</header>
+      <div class="modal-body">${issuesTable(issues,role())}</div>
+      <footer class="modal-footer">${btn('Back to project','openProject',id,'secondary','arrow-left')}</footer>`,'wide');
+  };
   function issueAiBrief(i) {
     const causes=Array.isArray(i.potentialCauses) ? i.potentialCauses : [];
-    return `${UatWorkflow.duplicateSummary(i)}<div class="ws-ai-strip">${ico('sparkles',19)}<div><strong class="ws-bug-ai-heading">Further details on the bug · AI summary</strong>
+    const latestFailure=i.retestHistory?.filter(attempt=>attempt.status==='fail').at(-1);
+    const followUp=latestFailure ? `<section class="info-box"><div><strong>Failed retest · Build ${esc(latestFailure.buildVersion)}</strong><p class="ws-pre-line">${esc(latestFailure.description)}</p>${issueEvidence(latestFailure)}</div></section>` : '';
+    const revision=i.reviewNotes ? `<section class="info-box"><div><strong>Manager’s revision request</strong><p class="ws-pre-line">${esc(i.reviewNotes)}</p></div></section>` : '';
+    return `${followUp}${revision}${UatWorkflow.duplicateSummary(i)}<div class="ws-ai-strip">${ico('sparkles',19)}<div><strong class="ws-bug-ai-heading">Further details on the bug · AI summary</strong>
       <p>${esc(i.aiSummary || `The UAT scenario “${testCaseFor(i)?.title || i.title}” produced an unexpected result.`)}</p>
       ${causes.length?`<p><strong>Potential causes to investigate</strong></p>${causes.map(cause=>`<p>• ${esc(cause)}</p>`).join('')}`:''}
       <p class="muted">Simulated suggestions. Confirm the cause using the reproduction steps and evidence.</p>
@@ -404,21 +417,35 @@
   };
   W.reviewFix = function(id) {
     const i=issue(id);if(!i||!UatWorkflow.canReview(i))return;const f=i.fix||{},e=employee(i.assignee);
+    ui.reviewedBuild={id,version:f.buildVersion,verifiedAt:i.verifiedAt};
     const test=testCaseFor(i),validation=f.validation;
     const recordedChecks=validation&&Number.isInteger(validation.passed)&&Number.isInteger(validation.total)&&validation.total>0&&validation.passed>=0&&validation.passed<=validation.total;
     app().modal(`<div class="modal-header"><div><div class="eyebrow">MANAGER REVIEW · ${esc(i.id)}</div><h2>${esc(i.title)}</h2></div><button class="ws-icon-button" onclick="A.closeModal()">${ico('x',20)}</button></div><div class="modal-body"><div class="ws-review-author">${app().person({...e,name:f.author||e?.name||'Development team'},'Developer')}${badge('In review','purple')}</div><div class="ws-review-verification">${app().person(employee(i.verifiedBy) || {name:'Assigned tester'},'Tester')}<p class="person-meta">Verified build ${esc(f.buildVersion)} for manager approval.</p></div><div class="ws-ai-strip">${ico('check-circle',20)}<div><strong>Original scenario passed retesting</strong><p>${esc(test?.title||i.title)}${i.verifiedAt?` · ${esc(new Date(i.verifiedAt).toLocaleString())}`:''}</p><p>${esc(test?.result?.description||'The assigned tester marked this scenario Pass on the submitted build.')}</p></div></div><h4>Developer notes</h4><p class="ws-pre-line">${esc(f.notes||'No developer notes were recorded.')}</p>${f.code?`<h4>Proposed change</h4><pre class="ws-review-code">${esc(f.code)}</pre>`:''}<div class="ws-fix-checks"><div>${ico('code',20)}<strong>${esc(f.buildVersion)}</strong><span>Tested build</span></div><div>${ico(f.tests?'check-circle':'info',20)}<strong>${f.tests?'Reported':'Not recorded'}</strong><span>Developer’s local checks</span></div><div>${ico('check',20)}<strong>Pass</strong><span>Tester result</span></div></div>${recordedChecks?`<section class="ws-ai-strip"><div><strong>Recorded checks: ${validation.passed} of ${validation.total} passed</strong>${validation.notes?`<p>${esc(validation.notes)}</p>`:''}${validation.risk?`<p>Regression note: ${esc(validation.risk)}</p>`:''}</div></section>`:''}<div class="ws-prototype-note">${ico('info',14)}The decision uses the developer’s notes and the tester’s recorded result. Demo validation records are sample data; this page does not run tests.</div></div><div class="modal-footer">${btn('Close','close',null,'secondary')}<span class="spacer"></span>${btn('Request changes','requestChanges',id,'secondary','message-square')}${btn('Approve fix','approveFix',id,'primary','check')}</div>`,'large');
   };
+  function reviewStillCurrent(id) {
+    app().refreshWorkspace();
+    const finding=issue(id), shown=ui.reviewedBuild;
+    if(UatWorkflow.canReview(finding) && shown?.id===id && shown.version===finding.fix.buildVersion && shown.verifiedAt===finding.verifiedAt)return true;
+    app().closeModal();
+    app().render();
+    app().toast('This review changed. Open the current verified fix before recording a decision.','warning');
+    return false;
+  }
   W.approveFix = function(id) {
-    if(!UatWorkflow.approveFix(id))return;
+    if(!reviewStillCurrent(id) || !UatWorkflow.approveFix(id))return;
     app().closeModal();refresh();app().toast('Fix approved after tester verification.','success');
   };
   W.requestChanges = function(id) {
-    const i=issue(id);if(!i||!UatWorkflow.canReview(i))return;
+    if(!reviewStillCurrent(id))return;
+    const i=issue(id);
     app().modal(`<div class="modal-header"><div><div class="eyebrow">CONSTRUCTIVE FEEDBACK</div><h2>Help the next revision land.</h2></div><button class="ws-icon-button" onclick="A.closeModal()">${ico('x',20)}</button></div><div class="modal-body"><p class="ws-modal-intro">Tell the developer what needs another look on <strong>${esc(i.title)}</strong>.</p><label class="field"><span>Requested changes <b>*</b></span><textarea id="ws-review-notes" class="input" rows="5" placeholder="Describe the change you need and how to verify it..." required></textarea></label></div><div class="modal-footer">${btn('Back to review','reviewFix',id,'secondary')}${btn('Send revision request','submitChanges',id,'primary','send')}</div>`,'medium');
   };
   W.submitChanges = function(id) {
     const input=document.getElementById('ws-review-notes');
-    if(!input||!input.reportValidity()||!UatWorkflow.requestChanges(id,input.value))return;
+    if(!input)return;
+    input.setCustomValidity(input.value.trim()?'':'Describe the change the developer should make.');
+    input.oninput=()=>input.setCustomValidity('');
+    if(!input.reportValidity()||!reviewStillCurrent(id)||!UatWorkflow.requestChanges(id,input.value))return;
     app().closeModal();refresh();app().toast('Revision request shared with the developer.','success');
   };
   W.runProjectCode = id => W.runAnalysis('code',id);
@@ -465,7 +492,8 @@
   function newIssue(data) {
     app().refreshWorkspace?.();
     state().issues=state().issues||[];
-    const n=Math.max(20,...state().issues.map(i=>Number(String(i.id).replace(/\D/g,''))||0))+1;
+    const numbers=state().issues.map(item=>/^PS-(\d+)$/.exec(item.id)?.[1]).filter(Boolean);
+    const n=numbers.reduce((highest,value)=>BigInt(value)>highest?BigInt(value):highest,20n)+1n;
     const created={id:'PS-'+String(n).padStart(3,'0'),status:'Open',estimate:'2h',deadline:project(data.projectId)?.deadline,...(role()==='tester'?{reportedBy:user().name,reportedById:user().id}:{}),...data};
     UatWorkflow.tagDuplicate(created);
     state().issues.unshift(created);
@@ -492,8 +520,12 @@
     f.sent=true;f.issueId=created.id;notify('A new finding is assigned to you',`${user().name} sent “${f.title}” for review.`,'developer',dev,run.projectId);app().save();app().render();W.analysisResults(runId);app().toast(`${created.id} created and sent to ${employee(dev)?.name||'the development team'}.`,'success');
   };
   W.reportFinding = function(projectId) {
-    const active=myProjects().filter(p=>!isDone(p)).sort(ProjectPriority.compare);
-    const selected=project(projectId)||active[0];if(selected&&!canWork(selected.id,()=>W.reportFinding(selected.id)))return;
+    const active=myProjects().filter(p=>!isDone(p) || UatWorkflow.stage(p)==='customer').sort(ProjectPriority.compare);
+    const selected=active.find(item=>item.id===projectId)||active[0];
+    if(!selected || (projectId && selected.id!==projectId)){
+      app().toast('Accept an active project invitation before reporting a finding.','warning');
+      return;
+    }
     app().modal(`<div class="modal-header"><div><div class="eyebrow">MAKE THE NEXT RELEASE BETTER</div><h2>Report a finding</h2><p>A useful report helps the team move from “what happened?” to “fixed.”</p></div><button class="ws-icon-button" onclick="A.closeModal()">${ico('x',20)}</button></div><div class="modal-body"><form id="ws-report-form"><div class="ws-form-grid"><label class="field ws-span-2"><span>Finding title <b>*</b></span><input class="input" id="ws-report-title" placeholder="A clear, specific description of the problem" required></label><label class="field"><span>Project <b>*</b></span><select class="input" id="ws-report-project" onchange="Workspaces.checkReportProject(this.value)">${active.map(p=>`<option value="${esc(p.id)}" ${p.id===selected?.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label><label class="field"><span>Category</span><select class="input" id="ws-report-category"><option>Functional</option><option>UI / UX</option><option>Performance</option><option>Security</option><option>Accessibility</option><option>Data integrity</option><option>Compatibility</option></select></label><label class="field"><span>Severity</span><select class="input" id="ws-report-severity"><option>Medium</option><option>Critical</option><option>High</option><option>Low</option></select></label><label class="field"><span>Environment <b>*</b></span><input class="input" id="ws-report-env" placeholder="e.g. Windows 11 · Chrome 130 · v2.4.0" value="Windows 11 · Chrome 130" required></label><label class="field ws-span-2"><span>Steps to reproduce <b>*</b></span><textarea class="input" id="ws-report-steps" rows="4" placeholder="1. Open the shipment form&#10;2. Enter...&#10;3. Click..." required></textarea></label><label class="field"><span>Expected behavior <b>*</b></span><textarea class="input" id="ws-report-expected" rows="3" placeholder="What should happen?" required></textarea></label><label class="field"><span>Actual behavior <b>*</b></span><textarea class="input" id="ws-report-actual" rows="3" placeholder="What happened instead?" required></textarea></label><label class="field"><span>Reproducibility</span><select class="input" id="ws-report-frequency"><option>Every time</option><option>Intermittent</option><option>Once</option></select></label><label class="field"><span>Assign to developer</span><select class="input" id="ws-report-dev"><option value="">Let the manager assign</option>${projectDevelopers(selected?.id).map(e=>`<option value="${esc(e.id)}">${esc(e.name)}</option>`).join('')}</select></label><label class="ws-upload-inline ws-span-2">${ico('paperclip',22)}<span><strong>Attach evidence</strong><small>Screenshots, screen recordings, logs, or a sample file</small></span><input id="ws-report-evidence" type="file" multiple onchange="this.closest('label').querySelector('strong').textContent=Array.from(this.files).map(f=>f.name).join(', ')||'Attach evidence'"></label></div></form><div class="ws-prototype-note">${ico('info',14)}Attachments are represented by filename only and stay in this local demo.</div></div><div class="modal-footer">${btn('Cancel','close',null,'secondary')}${btn('Submit finding','submitFinding',null,'primary','send')}</div>`,'large');
   };
   W.submitFinding = function() {
@@ -513,15 +545,18 @@
   W.feedbackDetails = function(id) {
     const f=feedbackList().find(x=>x.id===id);if(!f)return;
     const name=f.name||f.customer||f.customerName||'Customer', reviewed=/approved|sent|resolved|reviewed/i.test(f.status||'');
-    app().modal(`<div class="modal-header"><div><div class="eyebrow">CUSTOMER PRE-FEEDBACK · ${esc(f.id)}</div><h2>${esc(f.title||f.subject||'Customer feedback')}</h2></div><button class="ws-icon-button" onclick="A.closeModal()">${ico('x',20)}</button></div><div class="modal-body"><div class="ws-review-author"><div class="ws-feedback-person">${app().person({name,avatar:f.avatar>0&&f.avatar<=16?f.avatar:15},'Customer')}${f.email?`<p class="person-meta">${esc(f.email)}</p>`:''}</div>${badge(f.type||f.category||'Suggestion',/bug/i.test(f.type||f.category)?'amber':'purple')}</div><div class="ws-feedback-full"><p>${esc(f.description||f.body||f.message||f.content||'A customer has shared early feedback.')}</p></div><div class="ws-feedback-context"><div><span>Project</span><strong>${esc(project(f.projectId)?.name||'Customer preview')}</strong></div><div><span>Environment</span><strong>${esc(f.environment||'Chrome · Windows 11')}</strong></div><div><span>Review status</span>${badge(f.status||'New',reviewed?'green':'amber')}</div></div><div class="ws-ai-strip">${ico('sparkles',20)}<div><strong>AI triage suggestion</strong><p>${/bug/i.test(f.type||f.category)?'This describes a repeatable workflow problem. Confirm the scenario and approve it as a bug so a developer can investigate.':'This is a useful enhancement idea. Pass it to the development team with the customer context preserved.'}</p></div></div></div><div class="modal-footer">${btn('Close','close',null,'secondary')}${reviewed?'':btn(/bug/i.test(f.type||f.category)?'Approve as bug':'Send to developers','triageFeedback',id,'primary',/bug/i.test(f.type||f.category)?'check':'send')}</div>`,'large');
+    app().modal(`<div class="modal-header"><div><div class="eyebrow">CUSTOMER PRE-FEEDBACK · ${esc(f.id)}</div><h2>${esc(f.title||f.subject||'Customer feedback')}</h2></div><button class="ws-icon-button" onclick="A.closeModal()">${ico('x',20)}</button></div><div class="modal-body"><div class="ws-review-author"><div class="ws-feedback-person">${app().person({name,avatar:f.avatar>0&&f.avatar<=16?f.avatar:15},'Customer')}${f.email?`<p class="person-meta">${esc(f.email)}</p>`:''}</div>${badge(f.type||f.category||'Suggestion',/bug/i.test(f.type||f.category)?'amber':'purple')}</div><div class="ws-feedback-full"><p>${esc(f.description||f.body||f.message||f.content||'A customer has shared early feedback.')}</p></div><div class="ws-feedback-context"><div><span>Project</span><strong>${esc(project(f.projectId)?.name||'Customer preview')}</strong></div><div><span>Environment</span><strong>${esc(f.environment||'Chrome · Windows 11')}</strong></div><div><span>Review status</span>${badge(f.status||'New',reviewed?'green':'amber')}</div></div><div class="ws-ai-strip">${ico('sparkles',20)}<div><strong>AI triage suggestion</strong><p>${/bug/i.test(f.type||f.category)?'This describes a repeatable workflow problem. Confirm the scenario and approve it as a bug so a developer can investigate.':'This is a useful enhancement idea. Pass it to the development team with the customer context preserved.'}</p></div></div></div><div class="modal-footer">${btn('Close','close',null,'secondary')}${reviewed||role()==='developer'?'':btn(/bug/i.test(f.type||f.category)?'Approve as bug':'Send to developers','triageFeedback',id,'primary',/bug/i.test(f.type||f.category)?'check':'send')}</div>`,'large');
   };
   W.triageFeedback = function(id) {
+    if(!['manager','tester'].includes(role()))return;
     const f=feedbackList().find(x=>x.id===id);if(!f||/approved|sent|resolved|reviewed/i.test(f.status||''))return;const isBug=/bug/i.test(f.type||f.category);
     const developers=projectDevelopers(f.projectId);
     if(!developers.length){app().toast('Add an available developer to this project before forwarding feedback.','warning');return;}
     app().modal(`<div class="modal-header"><div><div class="eyebrow">CUSTOMER INSIGHT → TEAM ACTION</div><h2>${isBug?'Approve this as a bug':'Share a useful suggestion'}</h2></div><button class="ws-icon-button" onclick="A.closeModal()">${ico('x',20)}</button></div><div class="modal-body"><div class="ws-fix-context">${ico(isBug?'bug':'lightbulb',21)}<div><strong>${esc(f.title||f.subject)}</strong><span>Submitted by ${esc(f.name||f.customer||'a customer')}</span></div>${badge(isBug?'Bug':'Suggestion',isBug?'amber':'purple')}</div><p class="ws-modal-intro">${isBug?'Approving creates a trackable issue with the customer’s original context.':'The development team will receive the customer’s idea as an enhancement for review.'}</p><label class="field"><span>Assign developer</span><select class="input" id="ws-feedback-dev">${developers.map(e=>`<option value="${esc(e.id)}">${esc(e.name)} · ${percent(e.load)}% workload</option>`).join('')}</select></label><label class="field"><span>Reviewer notes</span><textarea class="input" id="ws-feedback-notes" rows="3" placeholder="Add reproduction details, impact, or why this suggestion matters..."></textarea></label></div><div class="modal-footer">${btn('Cancel','close',null,'secondary')}<button class="btn primary" onclick="Workspaces.confirmTriage(${js(id)})">${ico(isBug?'check':'send',16)}${isBug?'Approve & create issue':'Send to development'}</button></div>`,'medium');
   };
   W.confirmTriage = function(id) {
+    if(!['manager','tester'].includes(role()))return;
+    app().refreshWorkspace();
     const f=feedbackList().find(x=>x.id===id);if(!f||/approved|sent|resolved|reviewed/i.test(f.status||''))return;const isBug=/bug/i.test(f.type||f.category),dev=document.getElementById('ws-feedback-dev').value,notes=document.getElementById('ws-feedback-notes').value;
     if(!projectDevelopers(f.projectId).some(person=>person.id===dev)){app().toast('Choose an available developer assigned to this project.','warning');return;}
     f.status=isBug?'Approved':'Sent to developers';f.reviewedBy=user().name;

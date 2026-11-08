@@ -13,7 +13,7 @@
   function dashboardData() {
     const {projects, issues, pending} = Workspaces.overviewData();
     const sorted = projects.slice().sort(ProjectPriority.compare);
-    const active = sorted.filter(project => UatWorkflow.stage(project) !== 'awaiting' && ProjectPriority.of(project).key !== 'completed');
+    const active = sorted.filter(project => UatWorkflow.stage(project) !== 'awaiting' && ProjectPriority.of(project).key !== 'completed').sort(ProjectPriority.compareForRole);
     const completed = sorted.filter(project => ProjectPriority.of(project).key === 'completed');
     const activeIds = new Set(active.map(project => project.id));
     const activeIssues = issues.filter(issue => activeIds.has(issue.projectId));
@@ -90,7 +90,7 @@
     for (const issue of data.open) {
       openByProject.set(issue.projectId, (openByProject.get(issue.projectId) || 0) + 1);
     }
-    return `<ul class="uat-project-stack">${projects.map(project => projectRow(project, pendingIds, openByProject)).join('')}</ul>`;
+    return `<ul class="uat-project-stack">${projects.slice().sort(ProjectPriority.compareForRole).map(project => projectRow(project, pendingIds, openByProject)).join('')}</ul>`;
   };
 
   function projectSection(key, title, projects, data, emptyText) {

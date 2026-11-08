@@ -5,6 +5,11 @@ const {BASE_URL, RESULTS_DIR} = require('./support.cjs');
 
 const root = path.resolve(__dirname, '../..');
 const suites = [
+  ['Phone, tablet and direct-file workspaces', 'test-responsive-workspaces.cjs'],
+  ['Project assignment and UAT handoff integrity', 'test-workflow-scope.cjs'],
+  ['Customer entry and interrupted session recovery', 'test-beta-entry-recovery.cjs'],
+  ['Workspace preferences, keyboard controls and shared state', 'test-workspace-controls.cjs'],
+  ['Project priority order and consistent card sizes', 'test-project-order.cjs'],
   ['Demo data toggle and realistic project states', 'test-demo-toggle.cjs'],
   ['Demo retest and customer acceptance handoffs', 'test-demo-handoffs.cjs'],
   ['Refresh home and global reset', 'test-refresh-reset.cjs'],

@@ -1,5 +1,9 @@
 # UAT workflow verification
 
+On 8 November 2026, all 23 Chrome browser suites passed against the saved prototype. The run covered a fresh workspace, all four roles, the complete UAT and customer handoffs, stale review dialogs, interrupted beta sessions, keyboard controls, and phone and desktop layouts. The local server also returned 400 for a malformed path and continued serving the app. See `test-results/gui/summary.json` for individual results.
+
+## Earlier verification
+
 Run date: 6 November 2026. Browser: Chrome, using Playwright GUI automation and isolated browser contexts.
 
 **Previous complete run: 14 of 14 GUI suites passed**, with no browser JavaScript errors in the covered flows. A focused customer-triage rerun also passed after the final action-status refinement. The existing server and the user’s browser data were preserved.
@@ -87,3 +91,9 @@ The seeded-handoff suite passed a real retest and manager approval on the sample
 Fix reviews now show the submitted build, developer notes, recorded checks and tester verification rather than a fixed confidence percentage or invented test totals. AI remains simulated in this prototype.
 
 In demo mode, code/GUI summaries use the selected project’s recorded reports and approved-scenario counts. They do not introduce unrelated shipment findings or invented file/test totals. Bug details describe the next role’s action rather than a fixed numeric urgency score.
+
+## Project order and card typography
+
+Active cards now follow their displayed priority, with project number as the tie-breaker. Developer priorities use that person's actionable bugs; manager and tester priorities use the project-wide risk shown on their badges. The findings table and project selectors keep their numeric grouping. Descriptions and current-status text use 14px, while project titles and numbers remain 22px.
+
+The focused project-order GUI check passed at 2555×1244 and 1600×1050, including live reordering after submitting a fix. Developer handoff insights and compact four-panel checks also passed. The runner contains 19 suites; no complete new 19-suite run is claimed.

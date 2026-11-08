@@ -130,7 +130,7 @@ window.emptyWorkspace = () => ({
 });
 
 window.ensureSecondTester = state => {
- if (!state.cleanWorkspace || state.employees.some(person => person.role === 'tester' && person.id !== 't1')) return false;
+ if (!state.cleanWorkspace || state.employees.some(person => person.id === 't2' || (person.role === 'tester' && person.id !== 't1'))) return false;
  state.employees.push(structuredClone(window.emptyWorkspace().employees.find(person => person.id === 't2')));
  return true;
 };

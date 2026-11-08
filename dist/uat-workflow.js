@@ -89,6 +89,7 @@
   workflow.nextProjectNumber = () => Math.max(0,...workspace().projects.map(project => project.number || Number(project.name.match(/^Project (\d+)$/)?.[1]) || 0)) + 1;
 
   workflow.createAwaitingProject = function (details) {
+    A.refreshWorkspace();
     if(workspace().role!=='manager'||!clean(details?.version))return null;
     const number=workflow.nextProjectNumber();
     const project={
@@ -104,8 +105,9 @@
   };
 
   workflow.startTesting = function (projectId, plan) {
+    A.refreshWorkspace();
     const project=projectById(projectId);
-    if(workspace().role!=='manager'||!['awaiting','testing'].includes(workflow.stage(project))||!Array.isArray(plan?.cases)||!plan.cases.length)return false;
+    if(!project||workspace().role!=='manager'||!['awaiting','testing'].includes(workflow.stage(project))||!Array.isArray(plan?.cases)||!plan.cases.length)return false;
     const developerIds=[...new Set(plan.developerIds||[])];
     const testerIds=[...new Set(plan.testerIds||[])];
     const available=(ids,role)=>ids.length&&ids.every(id=>workspace().employees.some(employee=>employee.id===id&&employee.role===role&&employee.available!==false));
@@ -127,6 +129,11 @@
     const starting=workflow.stage(project)==='awaiting';
     const now=new Date().toISOString();
     project.team=[workspace().user.id,...developerIds,...testerIds];
+    workspace().assignments=workspace().assignments.filter(assignment=>{
+      if(assignment.projectId!==project.id || project.team.includes(assignment.employeeId))return true;
+      if(workspace().accepted)delete workspace().accepted[assignment.id];
+      return false;
+    });
     project.uat.cases=existing.map(test=>test.status==='draft'?{...submitted.get(test.id),status:'pending'}:test);
     for(const issue of workspace().issues.filter(item=>item.projectId===project.id&&item.status!=='Resolved')){
       if(!developerIds.includes(issue.assignee))issue.assignee=developerIds[0];
@@ -178,6 +185,7 @@
   };
 
   workflow.sendToCustomer = function (projectId, options = {}) {
+    A.refreshWorkspace();
     const project = projectById(projectId);
     if (workspace().role !== 'manager') return false;
     const early=options.early===true && options.acknowledged===true && workflow.stage(project)==='testing' && project.uat?.cases?.some(test=>test.status!=='draft');
@@ -264,6 +272,8 @@
     if (!test || workflow.stage(project) !== 'testing' ||
         !['pending', 'blocked', 'retest'].includes(test.status) ||
         !['pass', 'fail', 'blocked'].includes(status)) return false;
+    if (details.observedStatus && (test.status !== details.observedStatus ||
+        clean(test.buildVersion) !== clean(details.observedBuild))) return false;
     const description = clean(details.description);
     if (status === 'fail' && !description) return false;
 
@@ -281,7 +291,8 @@
       if (issue) {
         issue.retestHistory ||= [];
         issue.retestHistory.push({status:'fail', buildVersion:test.buildVersion, description, evidence:draft.evidence, evidenceId:draft.evidenceId, date:now});
-        Object.assign(issue, report, {status:'Reopened', reopenedAt:now});
+        issue.status = 'Reopened';
+        issue.reopenedAt = now;
         delete issue.verifiedBy;
         delete issue.verifiedAt;
       } else {
@@ -366,6 +377,7 @@
   }
 
   workflow.submitFix = function (issueId, fix) {
+    A.refreshWorkspace();
     const issue = workspace().issues.find(item => item.id === issueId);
     const project = projectById(issue?.projectId);
     const existing = caseById(project, issue?.uatCaseId);
@@ -390,6 +402,7 @@
   };
 
   workflow.approveFix = function (issueId) {
+    A.refreshWorkspace();
     const issue = workspace().issues.find(item => item.id === issueId);
     if (!workflow.canReview(issue)) return false;
     const project = projectById(issue.projectId);
@@ -408,6 +421,7 @@
   };
 
   workflow.requestChanges = function (issueId, notes) {
+    A.refreshWorkspace();
     const issue = workspace().issues.find(item => item.id === issueId);
     if (!workflow.canReview(issue) || !clean(notes)) return false;
     const project = projectById(issue.projectId);

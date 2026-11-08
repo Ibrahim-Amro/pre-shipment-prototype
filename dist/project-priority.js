@@ -56,10 +56,15 @@
     return {key:'low', label:'No developer action pending', rank:3};
   }
 
+  function compareForRole(a, b, role = window.A?.state?.role, employeeId = window.A?.state?.user?.id) {
+    const priority = project => role === 'developer' ? developerPriority(project, employeeId) : priorityOf(project);
+    return priority(a).rank - priority(b).rank || compare(a, b);
+  }
+
   function badge(project, priority = priorityOf(project)) {
     const {key, label} = priority;
     return `<span class="project-priority-badge" data-project-priority="${key}">${label}</span>`;
   }
 
-  window.ProjectPriority = {of: priorityOf, forDeveloper:developerPriority, compare, compareUrgency, badge};
+  window.ProjectPriority = {of: priorityOf, forDeveloper:developerPriority, compare, compareUrgency, compareForRole, badge};
 })();
