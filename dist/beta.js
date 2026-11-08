@@ -160,7 +160,9 @@ window.initBeta = function ({A, app, state, icon, esc, brand, titlebar, closeBtn
 
     keyForm(id) {
       const workspace = readWorkspace() || state;
-      const available = workspace.projects.filter(project => customerAvailable(project));
+      const sentTime=project=>Date.parse(project.customerEmail?.sentAt)||0;
+      const available = workspace.projects.filter(project => customerAvailable(project))
+        .sort((a,b)=>sentTime(b)-sentTime(a));
       const project = id ? available.find(item => item.id === id) : available[0];
       entryProjectId = project?.id || id || null;
       entrySignature = invitationSignature(workspace.projects, pinnedProjectId());

@@ -14,7 +14,7 @@ const {launchBrowser, BASE_URL, RESULTS_DIR} = require('./support.cjs');
   await page.locator('.splash').waitFor({state:'hidden'});
   await page.getByRole('button',{name:'Sign In',exact:true}).click();
   await page.getByRole('button',{name:'Sign in to workspace'}).click();
-  await page.getByRole('button',{name:'Toggle four-panel workspace'}).click();
+  await page.getByRole('button',{name:'Toggle staff workspace'}).click();
   await page.locator('#four-project').selectOption('p10');
   const frames={};
   for(const role of ['manager','developer','tester','customer']){
@@ -23,6 +23,7 @@ const {launchBrowser, BASE_URL, RESULTS_DIR} = require('./support.cjs');
   }
   const {manager,developer,tester,customer}=frames;
   async function focus(role){
+    if(await page.locator('.beta-overlay-close').isVisible())await page.locator('.beta-overlay-close').click();
    const selected=page.locator('[data-focus-role][aria-pressed=true]');
    if(await selected.count()){
     if(await selected.getAttribute('data-focus-role')===role)return;
@@ -120,7 +121,7 @@ const {launchBrowser, BASE_URL, RESULTS_DIR} = require('./support.cjs');
   await review.getByRole('button',{name:'Review',exact:true}).click();
   await manager.getByRole('button',{name:'Approve fix',exact:true}).click();
   await sendCustomer();
-  await focus('customer');
+  await page.locator('.beta-overlay-toggle').click();
   if(await customer.getByRole('button',{name:'Open Project 10',exact:true}).count())await customer.getByRole('button',{name:'Open Project 10',exact:true}).click();
   await customer.getByRole('button',{name:'New task',exact:true}).waitFor();
   await beta.getByRole('button',{name:'Send Feedback & Finish',exact:true}).click();

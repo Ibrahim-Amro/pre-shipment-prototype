@@ -9,6 +9,9 @@
   let shell;
   let toggle;
   let projectId;
+  let customerProjectId;
+  let lastInvitation;
+  let pendingInvitation;
   let focusedRole;
   let compactRole = 'manager';
   const compactScreen = matchMedia('(max-width: 799px), (max-width: 1000px) and (max-height: 500px)');
@@ -16,7 +19,7 @@
   let homeOnLaunch=false;
   let controlsInitialized=false;
   const viewStorageKey='pre-shipment-four-view';
-  function rememberView(){if(shell)sessionStorage.setItem(viewStorageKey,JSON.stringify({open:!shell.hidden,projectId,people}));}
+  function rememberView(){if(shell)sessionStorage.setItem(viewStorageKey,JSON.stringify({open:!shell.hidden,projectId,customerProjectId,lastInvitation,people}));}
   const people = {};
   const manualPeople = new Set();
 
@@ -53,7 +56,8 @@
     const url = new URL(location.pathname, location.href);
     url.searchParams.set('multiView', '1');
     url.searchParams.set('workspaceRole', role);
-    if (projectId) url.searchParams.set('project', projectId);
+    const frameProject=role==='customer'?customerProjectId:projectId;
+    if (frameProject) url.searchParams.set('project', frameProject);
     if(homeOnLaunch)url.searchParams.set('home','1');
     if (role !== 'customer' && people[role]) url.searchParams.set('employee', people[role]);
     return url.href;
@@ -96,6 +100,38 @@
     for (const button of panel.querySelectorAll('[data-panel-action]')) button.disabled = !childApp;
   }
 
+  function refreshCustomer(resetSelection=false) {
+    const eligible=projects().filter(project=>UatWorkflow.customerAvailable(project));
+    const latest=eligible.filter(project=>project.customerEmail?.sentAt)
+      .sort((a,b)=>Date.parse(b.customerEmail.sentAt)-Date.parse(a.customerEmail.sentAt))[0];
+    const stamp=latest ? latest.id+'|'+latest.customerEmail.sentAt : '';
+    if(lastInvitation!==undefined && stamp!==lastInvitation && latest)pendingInvitation=latest.id;
+    lastInvitation=stamp;
+    if(resetSelection || !state().projects.some(project=>project.id===customerProjectId)){
+      customerProjectId=(resetSelection||eligible.some(item=>item.id===projectId)?projectId:null) || latest?.id || projectId || eligible[0]?.id;
+      if(resetSelection)pendingInvitation=null;
+    }
+    const panel=shell.querySelector('#customer-beta-overlay');
+    const frame=panel.querySelector('iframe');
+    const atEntry=frame.contentDocument?.getElementById('beta-embedded-waiting');
+    if(pendingInvitation && (panel.hidden || shell.hidden || atEntry)){
+      if(eligible.some(project=>project.id===pendingInvitation))customerProjectId=pendingInvitation;
+      pendingInvitation=null;
+    }
+    const current=state().projects.find(project=>project.id===customerProjectId);
+    const choices=current&&!eligible.includes(current)?[current,...eligible]:eligible;
+    const picker=shell.querySelector('.beta-project-choice');
+    picker.innerHTML=choices.map(project=>`<option value="${escape(project.id)}"${project.id===customerProjectId?' selected':''}>${escape(project.name)}</option>`).join('');
+    picker.hidden=choices.length<2;
+    const ready=UatWorkflow.customerAvailable(current);
+    const status=shell.querySelector('[data-customer-status]');
+    status.classList.toggle('is-ready',ready);
+    status.title=ready?(current.uat?.earlyBeta?.enabled?'Early beta · UAT unfinished':'Beta ready'):'Waiting for customer handoff';
+    status.setAttribute('aria-label',status.title);
+    refreshPanel('customer');
+    loadFrame('customer');
+  }
+
   function refreshControls(resetPeople = false) {
     const choices = projects();
     if (!choices.some(project => project.id === projectId)) {
@@ -116,13 +152,7 @@
       loadFrame(role);
       refreshPanel(role);
     }
-    const ready = UatWorkflow.customerAvailable(selectedProject());
-    const status = shell.querySelector('[data-customer-status]');
-    status.classList.toggle('is-ready', ready);
-    status.title = ready ? (selectedProject()?.uat?.earlyBeta?.enabled?'Early beta · UAT unfinished':'Beta ready') : 'Waiting for customer handoff';
-    status.setAttribute('aria-label', status.title);
-    refreshPanel('customer');
-    loadFrame('customer');
+    refreshCustomer(resetPeople);
     rememberView();
   }
 
@@ -132,19 +162,19 @@
     shell.classList.toggle('four-compact-screen', compact);
     shell.classList.toggle('four-view-focused', Boolean(visibleRole));
     const bar = shell.querySelector('.four-compact-bar');
-    bar.hidden = !compact;
-    const controlsParent = compact ? bar : shell.querySelector(`.four-panel[data-role="${focusedRole || 'customer'}"] .four-panel-header`);
+    bar.hidden = false;
+    const controlsParent = bar;
     const controls = shell.querySelector('.four-workspace-controls');
     if (controls.parentElement !== controlsParent) controlsParent.appendChild(controls);
     for (const choice of bar.querySelectorAll('[data-show-role]')) {
       choice.setAttribute('aria-pressed', String(choice.dataset.showRole === compactRole));
     }
-    for (const panel of shell.querySelectorAll('.four-panel')) {
+    for (const panel of shell.querySelectorAll('.four-panel:not([data-role=customer])')) {
       const focused = panel.dataset.role === visibleRole;
       panel.classList.toggle('is-focused', focused);
       const button = panel.querySelector('[data-focus-role]');
       button.setAttribute('aria-pressed', String(focused));
-      button.setAttribute('aria-label', focused ? 'Return to four panels' : `Focus ${labels[panel.dataset.role]} panel`);
+      button.setAttribute('aria-label', focused ? 'Return to three panes' : `Focus ${labels[panel.dataset.role]} panel`);
       button.innerHTML = icon(focused ? 'grid' : 'maximize', 16);
     }
   }
@@ -155,12 +185,83 @@
     syncPanelLayout();
   }
 
+  function setCustomerOpen(open) {
+    const panel=shell.querySelector('.four-panel[data-role=customer]');
+    const trigger=shell.querySelector('.beta-overlay-toggle');
+    if(open){app().refreshWorkspace();refreshCustomer();}
+    panel.hidden=!open;
+    trigger.setAttribute('aria-expanded',String(open));
+    if(open){
+      clampOverlay();
+      panel.querySelector('.beta-overlay-close').focus();
+    } else trigger.focus();
+  }
+
+  function clampOverlay(x,y) {
+    const panel=shell.querySelector('.four-panel[data-role=customer]');
+    if(panel.hidden||shell.hidden)return;
+    const rect=panel.getBoundingClientRect();
+    panel.style.left=Math.max(0,Math.min(x??rect.left,innerWidth-rect.width))+'px';
+    panel.style.top=Math.max(0,Math.min(y??rect.top,innerHeight-rect.height))+'px';
+  }
+
+  function setupCustomerOverlay() {
+    const panel=shell.querySelector('.four-panel[data-role=customer]');
+    panel.hidden=true;
+    panel.id='customer-beta-overlay';
+    panel.setAttribute('role','dialog');
+    panel.setAttribute('aria-label','Customer beta');
+    const header=panel.querySelector('header');
+    header.querySelector('h2').textContent='Customer beta';
+    const picker=document.createElement('select');
+    picker.className='beta-project-choice';
+    picker.setAttribute('aria-label','Customer beta project');
+    header.insertBefore(picker,header.querySelector('.four-focus'));
+    picker.onchange=()=>{customerProjectId=picker.value;pendingInvitation=null;refreshCustomer();rememberView();};
+    const close=header.querySelector('[data-focus-role]');
+    close.removeAttribute('data-focus-role');
+    close.className='beta-overlay-close';
+    close.setAttribute('aria-label','Close customer beta');
+    close.title='Close customer beta';
+    close.innerHTML=icon('x',18);
+    close.onclick=()=>setCustomerOpen(false);
+    const trigger=document.createElement('button');
+    trigger.className='beta-overlay-toggle';
+    trigger.type='button';
+    trigger.textContent='Customer beta';
+    trigger.setAttribute('aria-controls',panel.id);
+    trigger.setAttribute('aria-expanded','false');
+    trigger.onclick=()=>setCustomerOpen(panel.hidden);
+    shell.querySelector('.four-workspace-controls').insertBefore(trigger,shell.querySelector('.four-view-close'));
+
+    let drag;
+    header.tabIndex=0;
+    header.title='Drag to move, or use the arrow keys';
+    header.onpointerdown=event=>{
+      if(event.button!==0||event.target.closest('button,select'))return;
+      const rect=panel.getBoundingClientRect();
+      drag={id:event.pointerId,x:event.clientX-rect.left,y:event.clientY-rect.top};
+      header.setPointerCapture(event.pointerId);
+    };
+    header.onpointermove=event=>{
+      if(drag?.id===event.pointerId)clampOverlay(event.clientX-drag.x,event.clientY-drag.y);
+    };
+    header.onlostpointercapture=()=>{drag=null;};
+    header.onkeydown=event=>{
+      const offset={ArrowLeft:[-20,0],ArrowRight:[20,0],ArrowUp:[0,-20],ArrowDown:[0,20]}[event.key];
+      if(event.target!==header||!offset)return;
+      event.preventDefault();
+      const rect=panel.getBoundingClientRect();clampOverlay(rect.left+offset[0],rect.top+offset[1]);
+    };
+    window.addEventListener('resize',()=>clampOverlay());
+  }
+
   function createShell() {
     shell = document.createElement('section');
     shell.className = 'four-view-shell';
     shell.hidden = true;
-    shell.setAttribute('aria-label', 'Four-role workspace');
-    shell.innerHTML = `<div class="four-compact-bar" hidden><div class="four-role-choices" role="group" aria-label="Choose workspace">${roles.map(role => `<button type="button" data-show-role="${role}">${labels[role]}</button>`).join('')}</div></div><div class="four-view-grid">${roles.map(role => `<section class="four-panel" data-role="${role}" aria-label="${labels[role]} panel">
+    shell.setAttribute('aria-label', 'Staff workspace');
+    shell.innerHTML = `<div class="four-compact-bar" hidden><div class="four-role-choices" role="group" aria-label="Choose workspace">${roles.filter(role=>role!=='customer').map(role => `<button type="button" data-show-role="${role}">${labels[role]}</button>`).join('')}</div></div><div class="four-view-grid">${roles.map(role => `<section class="four-panel" data-role="${role}" aria-label="${labels[role]} panel">
       <header class="four-panel-header">
         <img class="four-profile-photo" alt="">
         <h2 class="four-role four-role-${role}">${labels[role]}</h2>
@@ -171,7 +272,7 @@
           <button type="button" data-panel-action="messages" data-panel-role="${role}" title="Messages and notifications">${icon('bell', 17)}</button>
           <button type="button" data-panel-action="settings" data-panel-role="${role}" aria-label="${labels[role]} settings" title="Workspace settings">${icon('settings', 16)}</button>`}
         <button type="button" class="four-focus" data-focus-role="${role}" aria-label="Focus ${labels[role]} panel" aria-pressed="false" title="Focus this panel">${icon('maximize', 16)}</button>
-        ${role === 'customer' ? `<div class="four-workspace-controls"><label class="four-view-project"><span class="four-screen-reader">Shared project</span><select id="four-project" aria-label="Project for all four panels" title="Project for all four panels"></select></label><button type="button" class="four-view-close" aria-label="Close four-panel mode" title="Return to normal view">${icon('x', 16)}<span>Normal view</span></button></div>` : ''}
+        ${role === 'customer' ? `<div class="four-workspace-controls"><label class="four-view-project"><span class="four-screen-reader">Shared project</span><select id="four-project" aria-label="Shared project" title="Shared project"></select></label><button type="button" class="four-view-close" aria-label="Close staff workspace" title="Return to normal view">${icon('x', 16)}<span>Normal view</span></button></div>` : ''}
       </header>
       <iframe data-role="${role}" title="${labels[role]} workspace" allow="clipboard-write"></iframe>
     </section>`).join('')}</div>`;
@@ -182,6 +283,7 @@
         syncPanelLayout();
       };
     }
+    setupCustomerOverlay();
     compactScreen.addEventListener('change', syncPanelLayout);
     syncPanelLayout();
     shell.querySelector('.four-view-close').onclick = view.close;
@@ -234,7 +336,7 @@
     if (shell && !shell.hidden) return;
     if (location.protocol === 'file:') {
       app().modal(`<div class="modal-header"><h2>Open the shared workspace</h2><button class="icon-btn" aria-label="Close" onclick="A.closeModal()">${icon('x')}</button></div>
-        <div class="modal-body"><p>The four panels share projects through the local server. Double-click <strong>Start Prototype.cmd</strong> in the project folder, or run <code>npm start</code> there.</p></div>
+        <div class="modal-body"><p>The staff panes and customer beta share projects through the local server. Double-click <strong>Start Prototype.cmd</strong> in the project folder, or run <code>npm start</code> there.</p></div>
         <div class="modal-footer"><button class="btn" onclick="A.closeModal()">Stay here</button><a class="btn primary" href="http://127.0.0.1:4173/">Open local prototype</a></div>`, '');
       return;
     }
@@ -246,7 +348,7 @@
     document.body.classList.add('four-view-active');
     shell.hidden = false;
     toggle.setAttribute('aria-pressed', 'true');
-    toggle.innerHTML = `${icon('x', 20)}<span>Close four panels</span>`;
+    toggle.innerHTML = `${icon('x', 20)}<span>Close staff workspace</span>`;
     refreshControls();
     const entryFocus = compactScreen.matches ? shell.querySelector(`[data-show-role="${compactRole}"]`) : shell.querySelector('#four-project');
     entryFocus.focus({preventScroll:true});
@@ -261,7 +363,7 @@
     if (previousAppState?.ariaHidden === null) normalApp.removeAttribute('aria-hidden');
     else if (previousAppState?.ariaHidden) normalApp.setAttribute('aria-hidden', previousAppState.ariaHidden);
     toggle.setAttribute('aria-pressed', 'false');
-    toggle.innerHTML = `${icon('grid', 20)}<span>Open four panels</span>`;
+    toggle.innerHTML = `${icon('grid', 20)}<span>Open staff workspace</span>`;
     toggle.focus();
     rememberView();
   };
@@ -281,15 +383,15 @@
     toggle.id = 'four-view-toggle';
     toggle.className = 'four-view-toggle';
     toggle.setAttribute('aria-pressed', 'false');
-    toggle.setAttribute('aria-label', 'Toggle four-panel workspace');
-    toggle.innerHTML = `${icon('grid', 20)}<span>Open four panels</span>`;
+    toggle.setAttribute('aria-label', 'Toggle staff workspace');
+    toggle.innerHTML = `${icon('grid', 20)}<span>Open staff workspace</span>`;
     toggle.onclick = () => shell && !shell.hidden ? view.close() : view.open();
     document.body.appendChild(toggle);
     if(performance.getEntriesByType('navigation')[0]?.type==='reload'){
       try{
         const saved=JSON.parse(sessionStorage.getItem(viewStorageKey));
         if(saved?.open){
-          homeOnLaunch=true;projectId=saved.projectId;
+          homeOnLaunch=true;projectId=saved.projectId;customerProjectId=saved.customerProjectId;lastInvitation=saved.lastInvitation;
           for(const role of roles.filter(role=>role!=='customer'))if(saved.people?.[role]){people[role]=saved.people[role];manualPeople.add(role);}
           view.open();
         }
@@ -297,7 +399,8 @@
     }
     window.addEventListener('keydown', event => {
       if (event.key === 'Escape' && shell && !shell.hidden) {
-        if (focusedRole && !compactScreen.matches) focusPanel(focusedRole);
+        if (!shell.querySelector('[data-role=customer].four-panel').hidden) setCustomerOpen(false);
+        else if (focusedRole && !compactScreen.matches) focusPanel(focusedRole);
         else view.close();
       }
     });

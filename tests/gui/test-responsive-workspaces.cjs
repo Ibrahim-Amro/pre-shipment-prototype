@@ -47,10 +47,10 @@ const {launchBrowser, BASE_URL, RESULTS_DIR} = require('./support.cjs');
     assert.equal(await page.locator('#four-view-toggle').isVisible(), false, 'Floating toggle cannot block a modal action');
     await page.keyboard.press('Escape');
 
-    await page.getByRole('button', {name: 'Toggle four-panel workspace'}).click();
+    await page.getByRole('button', {name: 'Toggle staff workspace'}).click();
     await page.waitForFunction(() => [...document.querySelectorAll('iframe')].every(frame => frame.contentWindow.A?.state.role === frame.dataset.role));
     const shell = page.locator('.four-view-shell');
-    for (const role of ['manager', 'developer', 'tester', 'customer']) {
+    for (const role of ['manager', 'developer', 'tester']) {
       await shell.locator('[data-show-role="' + role + '"]').click();
       assert.equal(await shell.locator('.four-panel:visible').count(), 1);
       assert.equal(await shell.locator('.four-panel:visible').getAttribute('data-role'), role);
@@ -74,18 +74,18 @@ const {launchBrowser, BASE_URL, RESULTS_DIR} = require('./support.cjs');
     await page.screenshot({path: path.join(RESULTS_DIR, 'phone-four-workspaces.png'), animations: 'disabled'});
     await page.setViewportSize({width: 1280, height: 800});
     await shell.locator('.four-panel[data-role=tester]').waitFor();
-    assert.equal(await shell.locator('.four-panel:visible').count(), 4);
+    assert.equal(await shell.locator('.four-panel:visible').count(), 3);
     await shell.locator('[data-focus-role=tester]').click();
     await page.setViewportSize({width: 320, height: 568});
     assert.equal(await shell.locator('.four-panel:visible').getAttribute('data-role'), 'tester');
-    await shell.getByRole('button', {name: 'Close four-panel mode'}).click();
+    await shell.getByRole('button', {name: 'Close staff workspace'}).click();
     await page.locator('.topbar').waitFor();
     await page.screenshot({path: path.join(RESULTS_DIR, 'phone-manager.png'), animations: 'disabled'});
 
     const localIndex = path.resolve(__dirname, '../../dist/index.html');
     await page.goto(pathToFileURL(localIndex).href);
     await page.locator('.splash').waitFor({state: 'hidden'});
-    await page.getByRole('button', {name: 'Toggle four-panel workspace'}).click();
+    await page.getByRole('button', {name: 'Toggle staff workspace'}).click();
     const prompt = page.getByRole('dialog', {name: 'Open the shared workspace'});
     assert.equal(await prompt.getByRole('link', {name: 'Open local prototype'}).getAttribute('href'), 'http://127.0.0.1:4173/');
     await prompt.getByRole('button', {name: 'Stay here'}).click();

@@ -40,7 +40,7 @@ const {launchBrowser,BASE_URL}=require('./support.cjs');
   await stale.locator('#profile-name').fill('Unsaved stale profile');
   await stale.evaluate(()=>{A.refreshWorkspace=()=>false;});
 
-  await page.getByRole('button',{name:'Toggle four-panel workspace'}).click();
+  await page.getByRole('button',{name:'Toggle staff workspace'}).click();
   const frames={};
   for(const role of ['manager','developer','tester','customer']){
    frames[role]=await page.locator(`iframe[data-role=${role}]`).elementHandle().then(node=>node.contentFrame());
@@ -77,7 +77,7 @@ const {launchBrowser,BASE_URL}=require('./support.cjs');
 
   await page.reload();
   await page.locator('.four-view-shell').waitFor();
-  assert.equal(await page.locator('.four-panel:visible').count(),4);
+  assert.equal(await page.locator('.four-panel:visible').count(),3);
   for(const role of ['manager','developer','tester','customer']){
    frames[role]=await page.locator(`iframe[data-role=${role}]`).elementHandle().then(node=>node.contentFrame());
    await frames[role].waitForFunction(role=>window.A?.state.role===role,role);

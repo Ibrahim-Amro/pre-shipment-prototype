@@ -40,9 +40,10 @@ const {launchBrowser,BASE_URL,RESULTS_DIR}=require('./support.cjs');
   await beta.getByRole('button',{name:'New task',exact:true}).waitFor();
   await beta.close();
 
-  await page.getByRole('button',{name:'Toggle four-panel workspace'}).click();
+  await page.getByRole('button',{name:'Toggle staff workspace'}).click();
   await page.locator('#four-project').selectOption('p7');
-  const customer=await page.locator('iframe[data-role=customer]').elementHandle().then(element=>element.contentFrame());
+  await page.locator('.beta-overlay-toggle').click();
+    const customer=await page.locator('iframe[data-role=customer]').elementHandle().then(element=>element.contentFrame());
   await customer.getByRole('button',{name:'Open Project 7',exact:true}).click();
   await customer.getByRole('button',{name:'New task',exact:true}).click();
   await customer.getByRole('dialog',{name:'New task',exact:true}).waitFor();

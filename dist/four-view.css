@@ -458,3 +458,20 @@ body .ws-project-detail-stats>div>span {font-size:16px;line-height:1.5}
 body .ws-score-ring>div>span {font-size:13px;letter-spacing:.5px}
 body .ws-fix-summary>span,body .ws-fix-checks span {font-size:15px}
 body .ws-resilience-result .ws-badge {font-size:14px}
+
+/* Three staff columns share the viewport; the beta stays mounted when hidden. */
+.four-view-shell:not([hidden]) { display:flex; flex-direction:column; }
+.four-view-shell .four-view-grid { flex:1;min-height:0;height:auto;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:minmax(0,1fr);gap:4px;padding:3px; }
+.four-view-shell.four-view-focused .four-view-grid {grid-template-columns:minmax(0,1fr);}
+.four-view-grid>.four-panel {border:1px solid var(--line);border-radius:8px;}
+.four-view-shell:not(.four-compact-screen) .four-role-choices {display:none;}
+.four-compact-bar .four-workspace-controls {justify-content:flex-end;gap:8px;flex-wrap:wrap;}
+.beta-overlay-toggle {padding:0 12px;min-height:36px;border:1px solid var(--line);border-radius:6px;background:var(--blue-soft);color:var(--blue);font:650 14px 'DM Sans',sans-serif;cursor:pointer;}
+.four-view-shell .four-panel[data-role=customer] {position:fixed;z-index:10;left:8vw;top:9vh;width:min(860px,88vw);height:min(740px,82dvh);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 60px #17253e50;display:flex;}
+.four-view-shell .four-panel[data-role=customer][hidden] {display:none;}
+.four-panel[data-role=customer] header {cursor:move;touch-action:none;user-select:none;}
+.beta-overlay-close {margin-left:auto;}
+@media(min-width:800px) and (max-width:1350px){.four-view-shell:not(.four-view-focused) .four-panel-header {padding-inline:3px;gap:2px;}.four-view-shell:not(.four-view-focused) .four-panel-header button {width:24px;min-width:24px;}.four-view-shell:not(.four-view-focused) .four-profile-photo {width:26px;height:26px;}}
+
+.beta-project-choice {flex:0 1 145px;min-width:62px;margin-left:auto;border:1px solid var(--line);border-radius:6px;padding:4px;background:var(--surface);color:var(--text);}
+@media(max-width:600px){.four-panel[data-role=customer] .four-customer-name {display:none;}}

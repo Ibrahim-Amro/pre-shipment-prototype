@@ -137,7 +137,7 @@ const {launchBrowser, BASE_URL, RESULTS_DIR} = require('./support.cjs');
     await stale.locator('#profile-name').fill('Stale demo profile');
     await stale.evaluate(() => { A.refreshWorkspace = () => false; });
 
-    await page.getByRole('button',{name:'Toggle four-panel workspace'}).click();
+    await page.getByRole('button',{name:'Toggle staff workspace'}).click();
     const frames = {};
     for (const role of ['manager','developer','tester','customer']) {
       frames[role] = await page.locator(`iframe[data-role=${role}]`).elementHandle().then(node => node.contentFrame());
@@ -153,7 +153,7 @@ const {launchBrowser, BASE_URL, RESULTS_DIR} = require('./support.cjs');
     await frames.tester.getByRole('dialog').getByRole('button',{name:'Start from zero',exact:true}).click();
     await page.waitForFunction(() => window.A?.state.projects.length === 0 && !A.state.demoMode);
     await page.locator('.four-view-shell').waitFor();
-    assert.equal(await page.locator('.four-panel:visible').count(), 4);
+    assert.equal(await page.locator('.four-panel:visible').count(), 3);
     for (const role of ['manager','developer','tester','customer']) {
       const frame = await page.locator(`iframe[data-role=${role}]`).elementHandle().then(node => node.contentFrame());
       await frame.waitForFunction(() => window.A?.state.projects.length === 0);

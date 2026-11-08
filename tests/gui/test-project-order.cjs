@@ -17,7 +17,7 @@ const {launchBrowser, BASE_URL, RESULTS_DIR} = require('./support.cjs');
     await page.locator('.topbar').getByRole('button',{name:'Load demo data',exact:true}).click();
     await page.getByRole('dialog').getByRole('button',{name:'Load demo data',exact:true}).click();
     await page.waitForFunction(() => window.A?.state.demoMode && A.state.projects.length === 10);
-    await page.getByRole('button',{name:'Toggle four-panel workspace'}).click();
+    await page.getByRole('button',{name:'Toggle staff workspace'}).click();
     // A whole-workspace refresh returns all roles to their project lists.
     await page.reload();
     const frames = {};

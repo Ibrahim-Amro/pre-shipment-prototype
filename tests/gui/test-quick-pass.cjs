@@ -14,7 +14,7 @@ const {launchBrowser, BASE_URL, RESULTS_DIR} = require('./support.cjs');
     await page.locator('.splash').waitFor({state:'hidden'});
     await page.getByRole('button',{name:'Sign In',exact:true}).click();
     await page.getByRole('button',{name:'Sign in to workspace'}).click();
-    await page.getByRole('button',{name:'Toggle four-panel workspace'}).click();
+    await page.getByRole('button',{name:'Toggle staff workspace'}).click();
     const frames = {};
     for (const role of ['manager','developer','tester']) {
       frames[role] = await page.locator(`iframe[data-role=${role}]`).elementHandle().then(node => node.contentFrame());

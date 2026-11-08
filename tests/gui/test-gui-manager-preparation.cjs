@@ -100,7 +100,7 @@ const {launchBrowser, BASE_URL, RESULTS_DIR} = require('./support.cjs');
     for(const name of ['Olivia Bennett','Amelia Chen','Liam Walker','Ava Robinson'])await team.locator('li strong').filter({hasText:name}).waitFor();
     results.push('Approved plan is read-only and project roster shows exactly its assigned team');
 
-    await page.getByRole('button',{name:'Toggle four-panel workspace'}).click();
+    await page.getByRole('button',{name:'Toggle staff workspace'}).click();
     await page.locator('#four-project').selectOption(id);
     await page.getByLabel('Tester account',{exact:true}).selectOption('t3');
     const tester=await page.locator('iframe[data-role=tester]').elementHandle().then(el=>el.contentFrame());

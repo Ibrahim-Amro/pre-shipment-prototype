@@ -27,7 +27,7 @@ const suites = [
   ['Finding assignment and notification routing', 'test-qa-finding-routing.cjs'],
   ['Customer beta and feedback', 'qa-beta-full.cjs'],
   ['Customer acceptance regression and recovery', 'qa-beta-stale.cjs'],
-  ['Compact four-panel workspace', 'test-four-compact.cjs']
+  ['Three staff panes and customer overlay', 'test-four-compact.cjs']
 ];
 let ownedServer;
 let activeSuite;

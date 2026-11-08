@@ -19,7 +19,7 @@ const record = label => {steps.push(label); console.log('PASS:', label);};
   await page.locator('.splash').waitFor({state:'hidden'});
   await page.getByRole('button',{name:'Sign In',exact:true}).click();
   await page.getByRole('button',{name:'Sign in to workspace'}).click();
-  await page.getByRole('button',{name:'Toggle four-panel workspace'}).click();
+  await page.getByRole('button',{name:'Toggle staff workspace'}).click();
   await page.locator('#four-project').selectOption('p10');
   const frames = {};
   for(const role of ['manager','developer','tester','customer']) {
@@ -28,6 +28,7 @@ const record = label => {steps.push(label); console.log('PASS:', label);};
   }
   const {manager, developer, tester, customer} = frames;
   async function focus(role) {
+    if(await page.locator('.beta-overlay-close').isVisible())await page.locator('.beta-overlay-close').click();
    const selected = page.locator('[data-focus-role][aria-pressed=true]');
    if(await selected.count()) {
     if(await selected.getAttribute('data-focus-role') === role) return;
@@ -162,7 +163,7 @@ const record = label => {steps.push(label); console.log('PASS:', label);};
   await customer.getByRole('button',{name:'Open Project 10',exact:true,includeHidden:true}).waitFor({state:'attached'});
   await page.screenshot({path:path.join(output,'qa-customer-invitation.png'),animations:'disabled'});
   record('Finished project moves to Customer Acceptance with a project-specific credential key and editable email draft');
-  await focus('customer');
+  await page.locator('.beta-overlay-toggle').click();
   await customer.getByRole('button',{name:'Open Project 10',exact:true}).click();
   await customer.getByRole('button',{name:'New task',exact:true}).waitFor();
   await customer.locator('.planner-statusbar').getByText('Beta v1.0.2',{exact:true}).waitFor();

@@ -9,7 +9,7 @@ const {launchBrowser, BASE_URL, RESULTS_DIR} = require('./support.cjs');
   const page=await context.newPage();await page.goto(BASE_URL);
   await page.locator('.splash').waitFor({state:'hidden'});
   await page.getByRole('button',{name:'Sign In',exact:true}).click();await page.getByRole('button',{name:'Sign in to workspace'}).click();
-  await page.getByRole('button',{name:'Toggle four-panel workspace'}).click();
+  await page.getByRole('button',{name:'Toggle staff workspace'}).click();
   const manager=await page.locator('iframe[data-role=manager]').elementHandle().then(el=>el.contentFrame());
   const tester=await page.locator('iframe[data-role=tester]').elementHandle().then(el=>el.contentFrame());
   let developer=await page.locator('iframe[data-role=developer]').elementHandle().then(el=>el.contentFrame());

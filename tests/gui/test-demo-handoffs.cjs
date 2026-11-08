@@ -18,7 +18,7 @@ const {launchBrowser, BASE_URL, RESULTS_DIR} = require('./support.cjs');
     await page.locator('.topbar').getByRole('button',{name:'Load demo data',exact:true}).click();
     await page.getByRole('dialog').getByRole('button',{name:'Load demo data',exact:true}).click();
     await page.waitForFunction(() => window.A?.state.demoMode && A.state.projects.length === 10);
-    await page.getByRole('button',{name:'Toggle four-panel workspace'}).click();
+    await page.getByRole('button',{name:'Toggle staff workspace'}).click();
     await page.locator('#four-project').selectOption('p2');
     await page.locator('[data-person-role=tester]').selectOption('t2');
     const frames = {};
@@ -28,6 +28,7 @@ const {launchBrowser, BASE_URL, RESULTS_DIR} = require('./support.cjs');
     }
     const {manager,developer,tester,customer} = frames;
     async function focus(role) {
+    if(await page.locator('.beta-overlay-close').isVisible())await page.locator('.beta-overlay-close').click();
       const selected = page.locator('[data-focus-role][aria-pressed=true]');
       if (await selected.count()) {
         if (await selected.getAttribute('data-focus-role') === role) return;
@@ -66,12 +67,12 @@ const {launchBrowser, BASE_URL, RESULTS_DIR} = require('./support.cjs');
 
     // A second release was already finished when the demo was loaded. Send it
     // through the invitation and customer workflow without inventing more passes.
-    await page.locator('#four-project').selectOption('p4');
+    // Staff remain on Project 2 while the manager invites a customer to Project 4.
     await manager.waitForFunction(() => A.state.role === 'manager' && A.state.projects.some(project => project.id === 'p4'));
     await focus('manager');
+    await manager.locator('[data-page=dashboard]').click();
     const back = manager.getByRole('button',{name:'Back to projects',exact:true});
-    await back.waitFor();
-    await back.click();
+    if(await back.isVisible())await back.click();
     const finished = manager.locator('#uat-testing-finished').locator('..').locator('article').filter({hasText:'Project 4'});
     await finished.getByRole('button',{name:'Send to Customer Acceptance Stage',exact:true}).waitFor();
     assert.equal(await manager.evaluate(() => ProjectPriority.of(A.state.projects.find(project => project.id === 'p4')).label), 'UAT complete');
@@ -83,9 +84,10 @@ const {launchBrowser, BASE_URL, RESULTS_DIR} = require('./support.cjs');
     assert.ok(invitation.includes('Project 4') && invitation.includes(key));
     assert.ok(await manager.getByLabel('To',{exact:true}).inputValue());
     await manager.getByRole('button',{name:'Send email',exact:true}).click();
-    await customer.getByRole('button',{name:'Open Project 4',exact:true,includeHidden:true}).waitFor({state:'attached'});
+    assert.equal(await page.locator('#four-project').inputValue(),'p2');
+    await page.locator('.beta-overlay-toggle').click();
+    await customer.getByRole('button',{name:'Open Project 4',exact:true}).waitFor();
     assert.equal(await customer.getByLabel('Beta access key',{exact:true}).inputValue(), key);
-    await focus('customer');
     await customer.getByRole('button',{name:'Open Project 4',exact:true}).click();
     await customer.getByRole('button',{name:'New task',exact:true}).waitFor();
     await customer.getByRole('button',{name:'New task',exact:true}).click();
